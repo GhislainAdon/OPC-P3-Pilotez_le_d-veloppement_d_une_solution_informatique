@@ -3,96 +3,214 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FileService, FileResponse } from '../file.service';
+import { AuthService } from '../auth.service';
 
 @Component({
   selector: 'app-download',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <div class="download-wrapper animate-fade-in">
-      <!-- Loading State -->
-      <div *ngIf="state() === 'LOADING'" class="glass-panel loading-card">
-        <div class="loader"></div>
-        <p>Récupération des détails du fichier...</p>
-      </div>
+    <div class="page-layout animate-fade-in">
+      <!-- Header -->
+      <header class="header" data-purpose="header-navigation">
+        <div class="logo-wrapper" routerLink="/">
+          <span class="logo" id="brand-logo">DataShare</span>
+        </div>
+        <nav class="nav">
+          <span *ngIf="authService.isLoggedIn()" class="user-greeting">
+            Bonjour, <strong>{{ authService.currentUser()?.firstName || authService.currentUser()?.email }}</strong>
+          </span>
+          <button *ngIf="authService.isLoggedIn()" routerLink="/dashboard" class="btn-secondary nav-btn">
+            Historique
+          </button>
+          <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger">
+            Déconnexion
+          </button>
+          <button *ngIf="!authService.isLoggedIn()" routerLink="/login" class="btn-primary nav-btn" data-purpose="login-button">
+            Se connecter
+          </button>
+        </nav>
+      </header>
 
-      <!-- Error State -->
-      <div *ngIf="state() === 'ERROR'" class="glass-panel status-card error-card">
-        <div class="status-icon">⚠️</div>
-        <h2>Lien de téléchargement invalide ou expiré</h2>
-        <p class="status-desc">{{ errorMessage() }}</p>
-        <button routerLink="/" class="btn-primary">Retour à l'accueil</button>
-      </div>
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <!-- Loading State -->
+        <div *ngIf="state() === 'LOADING'" class="glass-panel loading-card" data-purpose="download-container">
+          <div class="loader"></div>
+          <p>Récupération des détails du fichier...</p>
+        </div>
 
-      <!-- Password Prompt State -->
-      <div *ngIf="state() === 'PASSWORD_PROMPT'" class="glass-panel download-card">
-        <div class="file-icon-large">🔒</div>
-        <h2 class="file-name">{{ fileDetails()?.originalName }}</h2>
-        <p class="file-info-text">Ce fichier est protégé par un mot de passe.</p>
+        <!-- Error State -->
+        <div *ngIf="state() === 'ERROR'" class="glass-panel status-card error-card" data-purpose="download-container">
+          <div class="status-icon">⚠️</div>
+          <h2>Lien de téléchargement invalide ou expiré</h2>
+          <p class="status-desc">{{ errorMessage() }}</p>
+          <button routerLink="/" class="btn-primary">Retour à l'accueil</button>
+        </div>
 
-        <form [formGroup]="passwordForm" (ngSubmit)="onPasswordSubmit()" class="password-form">
-          <div class="form-group">
-            <input 
-              type="password" 
-              formControlName="password" 
-              class="form-control" 
-              placeholder="Entrez le mot de passe"
-              [class.invalid]="passwordForm.invalid && passwordForm.touched"
-            />
+        <!-- Password Prompt State -->
+        <div *ngIf="state() === 'PASSWORD_PROMPT'" class="glass-panel download-card" data-purpose="download-container">
+          <h1 class="card-title" data-purpose="page-title">Télécharger un fichier</h1>
+          
+          <!-- File Details Info Box -->
+          <div class="file-details-box" data-purpose="file-info">
+            <div class="file-icon-wrapper">
+              <svg class="file-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </div>
+            <div class="file-meta">
+              <p class="file-name-title" [title]="fileDetails()?.originalName">{{ fileDetails()?.originalName }}</p>
+              <p class="file-size-subtitle">{{ formatBytes(fileDetails()?.fileSize || 0) }}</p>
+            </div>
           </div>
-          <div class="error-text" *ngIf="passwordError()">
-            {{ passwordError() }}
+
+          <!-- Expiration Notice -->
+          <div class="info-alert" data-purpose="status-alert">
+            <svg class="info-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <p class="info-text">Ce fichier expirera le {{ formatDate(fileDetails()?.expiryDate || '') }}</p>
           </div>
-          <button type="submit" [disabled]="passwordForm.invalid || downloading()" class="btn-primary action-btn">
-            <span *ngIf="!downloading()">Déverrouiller & Télécharger</span>
+
+          <form [formGroup]="passwordForm" (ngSubmit)="onPasswordSubmit()" class="password-form" data-purpose="download-form">
+            <div class="form-group">
+              <label class="form-label" for="password">Mot de passe</label>
+              <input 
+                id="password"
+                type="password" 
+                formControlName="password" 
+                class="form-control" 
+                placeholder="Saisissez le mot de passe..."
+                [class.invalid]="passwordForm.invalid && passwordForm.touched"
+              />
+            </div>
+            <div class="error-text" *ngIf="passwordError()">
+              {{ passwordError() }}
+            </div>
+            
+            <button type="submit" [disabled]="passwordForm.invalid || downloading()" class="btn-primary action-btn" data-purpose="action-button">
+              <svg *ngIf="!downloading()" class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+              <span *ngIf="!downloading()">Déverrouiller & Télécharger</span>
+              <span *ngIf="downloading()" class="spinner"></span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Ready to Download State -->
+        <div *ngIf="state() === 'READY'" class="glass-panel download-card" data-purpose="download-container">
+          <h1 class="card-title" data-purpose="page-title">Télécharger un fichier</h1>
+          
+          <!-- File Details Info Box -->
+          <div class="file-details-box" data-purpose="file-info">
+            <div class="file-icon-wrapper">
+              <svg class="file-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </div>
+            <div class="file-meta">
+              <p class="file-name-title" [title]="fileDetails()?.originalName">{{ fileDetails()?.originalName }}</p>
+              <p class="file-size-subtitle">{{ formatBytes(fileDetails()?.fileSize || 0) }}</p>
+            </div>
+          </div>
+
+          <!-- Expiration Notice -->
+          <div class="info-alert" data-purpose="status-alert">
+            <svg class="info-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <p class="info-text">Ce fichier expirera le {{ formatDate(fileDetails()?.expiryDate || '') }}</p>
+          </div>
+
+          <!-- Tags if present -->
+          <div class="tag-container" *ngIf="fileDetails()?.tags && fileDetails()!.tags.length > 0">
+            <span class="tag-badge" *ngFor="let tag of fileDetails()?.tags">#{{ tag }}</span>
+          </div>
+
+          <button (click)="triggerDownload()" [disabled]="downloading()" class="btn-primary action-btn download-btn" data-purpose="action-button">
+            <svg *ngIf="!downloading()" class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <span *ngIf="!downloading()">Télécharger</span>
             <span *ngIf="downloading()" class="spinner"></span>
           </button>
-        </form>
-      </div>
-
-      <!-- Ready to Download State -->
-      <div *ngIf="state() === 'READY'" class="glass-panel download-card">
-        <div class="file-icon-large">📄</div>
-        <h2 class="file-name" [title]="fileDetails()?.originalName">{{ fileDetails()?.originalName }}</h2>
-        
-        <div class="meta-grid">
-          <div class="meta-item">
-            <span class="meta-label">Taille</span>
-            <span class="meta-value">{{ formatBytes(fileDetails()?.fileSize || 0) }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Expire le</span>
-            <span class="meta-value">{{ formatDate(fileDetails()?.expiryDate || '') }}</span>
-          </div>
         </div>
+      </main>
 
-        <div class="tag-container" *ngIf="fileDetails()?.tags && fileDetails()!.tags.length > 0">
-          <span class="tag-badge" *ngFor="let tag of fileDetails()?.tags">#{{ tag }}</span>
-        </div>
-
-        <button (click)="triggerDownload()" [disabled]="downloading()" class="btn-primary action-btn download-btn">
-          <span *ngIf="!downloading()">Télécharger le fichier</span>
-          <span *ngIf="downloading()" class="spinner"></span>
-        </button>
-      </div>
+      <!-- Footer -->
+      <footer class="footer" data-purpose="footer-info">
+        <p class="footer-text">
+          Copyright DataShare® 2025
+        </p>
+      </footer>
     </div>
   `,
   styles: [`
-    .download-wrapper {
+    .page-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 20px;
+      width: 100%;
+    }
+    .logo-wrapper {
+      cursor: pointer;
+    }
+    .logo {
+      font-family: var(--font-title);
+      font-weight: 800;
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #fff 0%, var(--primary-hover) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-decoration: none;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .user-greeting {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .nav-btn {
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      border-radius: 10px;
+    }
+    .text-danger {
+      color: var(--accent) !important;
+      border-color: rgba(255, 0, 127, 0.2) !important;
+    }
+    .text-danger:hover {
+      background: rgba(255, 0, 127, 0.1) !important;
+    }
+    .main-content {
+      flex-grow: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: calc(100vh - 120px);
-      padding: 20px;
+      padding: 40px 0 80px;
     }
     .loading-card, .status-card, .download-card {
       width: 100%;
-      max-width: 480px;
-      padding: 40px;
+      max-width: 440px;
+      padding: 32px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      text-align: center;
     }
     .loader {
       border: 3px solid rgba(255, 255, 255, 0.1);
@@ -103,34 +221,89 @@ import { FileService, FileResponse } from '../file.service';
       animation: spin 1s linear infinite;
       margin-bottom: 20px;
     }
-    .status-icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
-    }
     .status-desc {
       color: var(--text-muted);
       margin: 12px 0 32px;
       font-size: 0.95rem;
+      text-align: center;
     }
-    .file-icon-large {
-      font-size: 4rem;
-      margin-bottom: 20px;
-    }
-    .file-name {
+    .card-title {
       font-family: var(--font-title);
+      font-size: 1.5rem;
       font-weight: 700;
-      font-size: 1.6rem;
-      margin-bottom: 8px;
-      word-break: break-all;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .file-info-text {
-      color: var(--text-muted);
+      text-align: center;
       margin-bottom: 24px;
+      color: var(--text-main);
+    }
+    .file-details-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      padding: 16px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      width: 100%;
+      text-align: left;
+    }
+    .file-icon-wrapper {
+      background: rgba(138, 43, 226, 0.1);
+      padding: 10px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-svg-icon {
+      width: 24px;
+      height: 24px;
+      color: var(--primary-hover);
+    }
+    .file-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-name-title {
+      font-weight: 600;
       font-size: 0.95rem;
+      color: var(--text-main);
+      word-break: break-all;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+    }
+    .file-size-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin: 2px 0 0;
+    }
+    .info-alert {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(30, 144, 255, 0.08);
+      border: 1px solid rgba(30, 144, 255, 0.2);
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      width: 100%;
+      text-align: left;
+    }
+    .info-svg-icon {
+      width: 18px;
+      height: 18px;
+      color: #1e90ff;
+      flex-shrink: 0;
+    }
+    .info-text {
+      font-size: 0.85rem;
+      color: #79b7ff;
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.4;
     }
     .password-form {
       width: 100%;
@@ -138,46 +311,22 @@ import { FileService, FileResponse } from '../file.service';
       flex-direction: column;
       gap: 16px;
     }
-    .error-text {
-      color: var(--accent);
-      font-size: 0.85rem;
-    }
     .action-btn {
       width: 100%;
       height: 48px;
     }
-    .meta-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 24px;
-    }
-    .meta-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .meta-label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .meta-value {
-      font-weight: 600;
-      font-size: 0.95rem;
+    .btn-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
     }
     .tag-container {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
+      width: 100%;
     }
     .tag-badge {
       background: rgba(138, 43, 226, 0.15);
@@ -187,6 +336,19 @@ import { FileService, FileResponse } from '../file.service';
       border-radius: 100px;
       font-size: 0.8rem;
       font-weight: 500;
+    }
+    .footer {
+      padding: 20px 0;
+      border-top: 1px solid var(--glass-border);
+      width: 100%;
+      text-align: left;
+    }
+    .footer-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin: 0;
+      opacity: 0.6;
     }
     .spinner {
       width: 20px;
@@ -199,12 +361,24 @@ import { FileService, FileResponse } from '../file.service';
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    @media (max-width: 576px) {
+      .page-layout {
+        padding: 16px;
+      }
+      .loading-card, .status-card, .download-card {
+        padding: 24px;
+      }
+      .logo {
+        font-size: 1.5rem;
+      }
+    }
   `]
 })
 export class DownloadComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly fileService = inject(FileService);
   private readonly fb = inject(FormBuilder);
+  readonly authService = inject(AuthService);
 
   readonly state = signal<'LOADING' | 'READY' | 'PASSWORD_PROMPT' | 'ERROR'>('LOADING');
   readonly fileDetails = signal<FileResponse | null>(null);
@@ -261,7 +435,7 @@ export class DownloadComponent implements OnInit {
         document.body.removeChild(a);
         
         this.downloading.set(false);
-        this.state.set('READY'); // Reset view state if previously in password prompt
+        this.state.set('READY');
       },
       error: (err) => {
         this.downloading.set(false);
@@ -273,6 +447,10 @@ export class DownloadComponent implements OnInit {
         }
       }
     });
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 
   formatBytes(bytes: number): string {

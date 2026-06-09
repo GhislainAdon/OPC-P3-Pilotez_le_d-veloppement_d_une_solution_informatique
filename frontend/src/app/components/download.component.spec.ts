@@ -1,15 +1,18 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { DownloadComponent } from './download.component';
 import { FileService } from '../file.service';
+import { AuthService } from '../auth.service';
 import { ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 
 describe('DownloadComponent', () => {
   let component: DownloadComponent;
   let fixture: ComponentFixture<DownloadComponent>;
   let fileServiceMock: any;
+  let authServiceMock: any;
   let activatedRouteMock: any;
 
   const mockFile = {
@@ -30,6 +33,12 @@ describe('DownloadComponent', () => {
       downloadFileBlob: vi.fn()
     };
 
+    authServiceMock = {
+      isLoggedIn: vi.fn().mockReturnValue(false),
+      currentUser: signal(null),
+      logout: vi.fn()
+    };
+
     activatedRouteMock = {
       snapshot: {
         paramMap: {
@@ -43,6 +52,7 @@ describe('DownloadComponent', () => {
       providers: [
         provideRouter([]),
         { provide: FileService, useValue: fileServiceMock },
+        { provide: AuthService, useValue: authServiceMock },
         { provide: ActivatedRoute, useValue: activatedRouteMock }
       ]
     }).compileComponents();
