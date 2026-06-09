@@ -1,49 +1,118 @@
-# DataShare — Projet 3 : Pilotez le développement d'une solution informatique
+# DataShare — Plateforme Sécurisée de Partage de Fichiers
 
-Bienvenue sur le projet **DataShare** !
+DataShare est une application web moderne de partage de fichiers inspirée de WeTransfer, conçue pour être sécurisée, robuste et performante. Ce projet s'inscrit dans le cadre du Projet 3 de la formation d'Expert DevOps.
 
-L'objectif de ce projet est de concevoir et développer de bout en bout une solution informatique sécurisée de partage de fichiers inspirée de WeTransfer, en respectant les principes d'une architecture moderne, d'une couverture de tests rigoureuse, et d'un déploiement conteneurisé.
-
----
-
-## 🎯 Spécifications Fonctionnelles
-
-1. **Partage de fichiers** :
-   - Dépôt de fichiers de manière anonyme ou connectée.
-   - Durée de vie configurable pour chaque dépôt (entre **1 et 7 jours**).
-   - Protection optionnelle du téléchargement par un **mot de passe**.
-2. **Espace Utilisateur** :
-   - Inscription et connexion sécurisée.
-   - Tableau de bord listant l'historique des partages actifs de l'utilisateur.
-   - Possibilité de copier le lien de partage ou de supprimer manuellement un partage.
-3. **Sécurité et Validations** :
-   - Limite de taille fixée à **1 Go** par téléversement.
-   - **Interdiction stricte des fichiers exécutables** (ex: `.exe`, `.bat`, `.sh`, `.cmd`) pour prévenir la propagation de malwares.
-   - Masquage des chemins physiques et renommage des fichiers par des UUID v4 aléatoires sur le serveur.
-4. **Maintenance automatique** :
-   - Purge automatique quotidienne (tâche planifiée Cron) supprimant les fichiers physiques et leurs métadonnées à expiration.
+L'application respecte une architecture découplée avec un backend développé en **Spring Boot 4.0.6 (Java 21)** et un frontend développé en **Angular 22.0.0 (Node 22.22.3)**, utilisant **PostgreSQL 16** pour la base de données et **Docker Compose** pour l'orchestration des conteneurs.
 
 ---
 
-## 🛠️ Stack Technique Recommandée
+## 🚀 Fonctionnalités Clés
 
-- **Backend** : Spring Boot 4.x / Spring Security 7.x (Java 21)
-- **Frontend** : Angular 22.x (Node 22.x, Standalone components, Signals)
+- **Partage Public et Privé** : Possibilité d'importer des fichiers de manière anonyme ou authentifiée.
+- **Sécurité de Bout en Bout** :
+  - Authentification des utilisateurs via **JSON Web Tokens (JWT)**.
+  - Hachage des mots de passe avec **BCrypt**.
+  - Option de chiffrement/protection des téléchargements par mot de passe.
+- **Gestion des Fichiers & Métadonnées** :
+  - Générateur d'UUID uniques et sécurisés pour masquer le nom physique et l'emplacement de stockage des fichiers.
+  - Limite de téléversement fixée à **1 Go**.
+  - Restrictions strictes sur les formats de fichiers : **exécutables interdits** (`.exe`, `.bat`, `.sh`, `.cmd`).
+  - Durée de vie configurable (entre **1 et 7 jours**).
+- **Tableau de Bord Utilisateur** : Historique des partages actifs, copie rapide du lien de téléchargement, suppression à la demande (physique et logique).
+- **Tâche Planifiée (Cron)** : Script de nettoyage quotidien automatique pour supprimer physiquement et logiquement tous les fichiers expirés.
+- **Expérience Utilisateur Premium** : Interface Purple/Indigo Dark Mode avec design glassmorphism, animations et adaptabilité mobile complète.
+
+---
+
+## 🛠️ Stack Technique
+
+### Backend
+- **Framework** : Spring Boot 4.0.6 (Java 21)
+- **Sécurité** : Spring Security 7.0 (Stateless JWT, BCrypt)
 - **Base de Données** : PostgreSQL 16
-- **Conteneurisation** : Docker / Docker Compose
+- **Persistance** : Spring Data JPA / Hibernate
+- **Outils** : Maven, Jackson v3 (utilisant `tools.jackson.databind`), JUnit 5, Mockito
+
+### Frontend
+- **Framework** : Angular 22.0.0 (Node 22.22.3)
+- **Gestion du State** : Angular Signals
+- **Style** : CSS standard, Typographies Outfit & Inter (Google Fonts)
+- **Testing** : Vitest 4.0.8, Angular unit-test builder
+
+### DevOps & Conteneurisation
+- **Docker / Docker Compose** : Orchestration multi-conteneurs (`datashare-db`, `datashare-backend`, `datashare-frontend`)
+- **Nginx** : Utilisé comme serveur de fichiers statiques pour l'application Angular dans le conteneur frontend.
 
 ---
 
-## 🚀 Étapes de Développement attendues
+## 📦 Architecture & Modèle de Données
 
-1. **Base de Données** : Modéliser le schéma SQL (User, FileMetadata, Tag) et configurer l'instance PostgreSQL.
-2. **Backend API** : Développer les API REST de dépôt, téléchargement, historique et gestion des comptes.
-3. **Sécurisation** : Configurer la chaîne de sécurité stateless (JWT) et le hachage des mots de passe (BCrypt).
-4. **Frontend UI** : Concevoir une interface utilisateur responsive en Glassmorphism (Purple/Indigo Dark Mode) pour le dépôt, le téléchargement et le dashboard.
-5. **Dockerisation** : Écrire les Dockerfiles de build multi-stage et le compose.yaml pour orchestrer les services.
-6. **Tests et Qualité** : Écrire les tests unitaires et d'intégration couvrant 100% des cas d'utilisation critiques.
-7. **Documentation** : Rédiger la documentation technique de maintenance, performance, sécurité et test.
+### Diagramme d'Architecture
+```mermaid
+graph TD
+    Client[Angular 22 Client] <-->|REST API + JWT| Gateway[Spring Boot 4 REST Controller]
+    Gateway <--> Security[Spring Security / JWT Filter]
+    Security <--> Services[Services Métier]
+    Services <--> Database[(Base de Données PostgreSQL)]
+    Services <--> Storage[Stockage Local /app/uploads]
+    Services <--> Cron[Daily Clean Task]
+```
+
+### Modèle de Données (MCD)
+- **User** : Enregistre les comptes utilisateurs (email, mot de passe haché, nom, prénom).
+- **FileMetadata** : Répertorie les fichiers téléversés, leur UUID unique, leur taille, type MIME, mot de passe de protection optionnel, date de dépôt et date d'expiration.
+- **Tag** : Gère les étiquettes personnalisées associées aux fichiers partagés.
 
 ---
 
-*Bon développement !*
+## ⚙️ Installation et Exécution locale
+
+### Prérequis
+- Docker Desktop et Docker Compose installés et actifs.
+- Ports `80`, `8080` et `5432` disponibles sur l'hôte.
+
+### Lancement avec Docker Compose
+1. Clonez le dépôt et rendez-vous à la racine :
+   ```bash
+   git clone https://github.com/GhislainAdon/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique.git
+   cd OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique
+   ```
+2. Lancez les services en arrière-plan :
+   ```bash
+   docker compose up -d --build
+   ```
+3. Accédez à l'application :
+   - Frontend : `http://localhost` (Port 80)
+   - Backend API : `http://localhost:8080/api`
+   - Base de données PostgreSQL : `localhost:5432`
+
+---
+
+## 🧪 Stratégie de Test & Qualité
+
+### 1. Tests Unitaires & d'Intégration Backend
+Pour exécuter les 32 tests unitaires et d'intégration Spring Boot :
+```bash
+cd backend
+mvn test
+```
+
+### 2. Tests Unitaires Frontend
+Pour exécuter les 34 tests unitaires Angular / Vitest :
+```bash
+cd frontend
+npm install
+npm test
+```
+
+---
+
+## 📄 Documentation Qualité & DevOps
+
+Pour une description plus approfondie des protocoles de qualité, sécurité, performance et maintenance, veuillez consulter les plans de suivi dédiés :
+- 📈 **[Plan de Test (TESTING.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/TESTING.md)** : Rapport de couverture de test et stratégies.
+- 🔒 **[Plan de Sécurité (SECURITY.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/SECURITY.md)** : Gestion des accès, hachage, validation d'input et politique de sécurité.
+- ⚡ **[Plan de Performance (PERF.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/PERF.md)** : Diagnostics de scalabilité, gestion de gros volumes de fichiers (limite 1 Go) et audits de performance.
+- 🛠️ **[Plan de Maintenance (MAINTENANCE.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/MAINTENANCE.md)** : Gestion du cycle de vie opérationnel, logs, alertes et sauvegardes.
+
+Pour les guides d'explication de soutenance et speech oral, veuillez consulter la branche `guide`.
