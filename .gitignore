@@ -1,0 +1,28 @@
+# IDE & OS Files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & Storage
+uploads/
+pgdata/
+
+# Build & Dependency Artifacts
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
