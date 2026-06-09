@@ -1,0 +1,9 @@
+.git
+.idea
+.vscode
+backend/target
+frontend/node_modules
+frontend/dist
+frontend/.angular
+pgdata
+uploads
