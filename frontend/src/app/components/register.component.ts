@@ -85,10 +85,10 @@ import { AuthService } from '../auth.service';
     }
     .auth-title {
       font-family: var(--font-title);
-      font-weight: 700;
-      font-size: 2rem;
+      font-weight: 800;
+      font-size: 2.2rem;
       margin-bottom: 8px;
-      background: linear-gradient(135deg, #fff 0%, var(--text-muted) 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       text-align: center;
@@ -98,6 +98,7 @@ import { AuthService } from '../auth.service';
       text-align: center;
       font-size: 0.95rem;
       margin-bottom: 32px;
+      font-weight: 500;
     }
     .auth-form {
       display: flex;
@@ -112,21 +113,23 @@ import { AuthService } from '../auth.service';
       flex: 1;
     }
     .error-msg {
-      color: var(--accent);
+      color: var(--primary);
       font-size: 0.8rem;
       margin-top: 4px;
+      font-weight: 500;
     }
     .invalid {
-      border-color: rgba(255, 0, 127, 0.4) !important;
+      border-color: rgba(232, 93, 104, 0.4) !important;
     }
     .error-banner {
-      background: rgba(255, 0, 127, 0.1);
-      border: 1px solid var(--accent);
+      background: rgba(232, 93, 104, 0.08);
+      border: 1px solid var(--primary);
       color: var(--text-main);
       padding: 12px;
       border-radius: 12px;
       font-size: 0.9rem;
       text-align: center;
+      font-weight: 500;
     }
     .auth-btn {
       width: 100%;

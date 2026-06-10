@@ -11,135 +11,140 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <div class="upload-container animate-fade-in">
-      <div class="glass-panel main-card">
-        
-        <!-- Welcome header -->
-        <header class="header">
-          <h1 class="logo" routerLink="/">DataShare</h1>
-          <nav class="nav">
-            <span *ngIf="authService.isLoggedIn()" class="user-greeting">
-              Bonjour, <strong>{{ authService.currentUser()?.firstName || authService.currentUser()?.email }}</strong>
-            </span>
-            <button *ngIf="authService.isLoggedIn()" routerLink="/dashboard" class="btn-secondary nav-btn">
-              Historique
-            </button>
-            <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger">
-              Déconnexion
-            </button>
-            <button *ngIf="!authService.isLoggedIn()" routerLink="/login" class="btn-primary nav-btn">
-              Se connecter
-            </button>
-          </nav>
-        </header>
+    <div class="page-layout animate-fade-in">
+      <!-- Shared TopAppBar -->
+      <header class="top-app-bar" data-purpose="header-navigation">
+        <div class="logo-wrapper" routerLink="/">
+          <span class="logo" id="brand-logo">DataShare</span>
+        </div>
+        <nav class="nav">
+          <span *ngIf="authService.isLoggedIn()" class="user-greeting">
+            Bonjour, <strong>{{ authService.currentUser()?.firstName || authService.currentUser()?.email }}</strong>
+          </span>
+          <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger">
+            Déconnexion
+          </button>
+          <button *ngIf="!authService.isLoggedIn()" routerLink="/login" class="btn-primary nav-btn" data-purpose="login-button">
+            Se connecter
+          </button>
+        </nav>
+      </header>
 
-        <div class="card-content">
-          <!-- Left side: Upload settings -->
-          <div class="settings-panel" [class.disabled]="uploadState() !== 'IDLE'">
-            <h3 class="section-title">Options de partage</h3>
-            <form [formGroup]="uploadForm" class="settings-form">
-              
-              <div class="form-group">
-                <label class="form-label">Durée de validité (jours)</label>
-                <div class="slider-wrapper">
-                  <input type="range" min="1" max="7" formControlName="expiryDays" class="range-slider" />
-                  <span class="slider-value">{{ uploadForm.value.expiryDays }} jours</span>
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="glass-panel main-card">
+          <div class="card-content">
+            <!-- Left side: Upload settings -->
+            <div class="settings-panel" [class.disabled]="uploadState() !== 'IDLE'">
+              <h3 class="section-title">Options de partage</h3>
+              <form [formGroup]="uploadForm" class="settings-form">
+                
+                <div class="form-group">
+                  <label class="form-label">Durée de validité (jours)</label>
+                  <div class="slider-wrapper">
+                    <input type="range" min="1" max="7" formControlName="expiryDays" class="range-slider" />
+                    <span class="slider-value">{{ uploadForm.value.expiryDays }} jours</span>
+                  </div>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label class="form-label">Protection par mot de passe</label>
-                <input 
-                  type="password" 
-                  formControlName="password" 
-                  class="form-control" 
-                  placeholder="Laisser vide pour aucun"
-                />
-              </div>
+                <div class="form-group">
+                  <label class="form-label">Protection par mot de passe</label>
+                  <input 
+                    type="password" 
+                    formControlName="password" 
+                    class="form-control" 
+                    placeholder="Laisser vide pour aucun"
+                  />
+                </div>
 
-              <div class="form-group">
-                <label class="form-label">Tags (Séparés par des virgules)</label>
-                <input 
-                  type="text" 
-                  formControlName="tags" 
-                  class="form-control" 
-                  placeholder="travail, pdf, important"
-                />
-              </div>
-            </form>
-          </div>
-
-          <!-- Right side: Dropzone or Progress or Result -->
-          <div class="drop-panel">
-            <!-- IDLE State Dropzone -->
-            <div 
-              *ngIf="uploadState() === 'IDLE'" 
-              class="drop-zone"
-              [class.drag-over]="isDragOver()"
-              (dragover)="onDragOver($event)"
-              (dragleave)="onDragLeave($event)"
-              (drop)="onDrop($event)"
-              (click)="fileInput.click()"
-            >
-              <input 
-                type="file" 
-                #fileInput 
-                (change)="onFileSelected($event)" 
-                style="display: none;" 
-              />
-              <div class="drop-icon">📤</div>
-              <h3>Glissez-déposez votre fichier ici</h3>
-              <p>ou cliquez pour parcourir vos dossiers</p>
-              <span class="file-limits">Taille max : 1 Go. Fichiers .exe/.bat interdits.</span>
+                <div class="form-group">
+                  <label class="form-label">Tags (Séparés par des virgules)</label>
+                  <input 
+                    type="text" 
+                    formControlName="tags" 
+                    class="form-control" 
+                    placeholder="travail, pdf, important"
+                  />
+                </div>
+              </form>
             </div>
 
-            <!-- UPLOADING State Progress -->
-            <div *ngIf="uploadState() === 'UPLOADING'" class="progress-zone">
-              <div class="upload-icon-anim">⚡</div>
-              <h3>Téléversement en cours...</h3>
-              <p class="file-name-progress">{{ selectedFile?.name }}</p>
-              
-              <div class="progress-bar-container">
-                <div class="progress-bar-fill" [style.width.%]="progressPercent()"></div>
+            <!-- Right side: Dropzone or Progress or Result -->
+            <div class="drop-panel">
+              <!-- IDLE State Dropzone -->
+              <div 
+                *ngIf="uploadState() === 'IDLE'" 
+                class="drop-zone"
+                [class.drag-over]="isDragOver()"
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onDrop($event)"
+                (click)="fileInput.click()"
+              >
+                <input 
+                  type="file" 
+                  #fileInput 
+                  (change)="onFileSelected($event)" 
+                  style="display: none;" 
+                />
+                <div class="drop-icon">📤</div>
+                <h3>Glissez-déposez votre fichier ici</h3>
+                <p>ou cliquez pour parcourir vos dossiers</p>
+                <span class="file-limits">Taille max : 1 Go. Fichiers .exe/.bat interdits.</span>
               </div>
-              <span class="progress-text">{{ progressPercent() }}%</span>
-            </div>
 
-            <!-- SUCCESS State Result -->
-            <div *ngIf="uploadState() === 'SUCCESS' && uploadResult()" class="success-zone">
-              <div class="success-icon">🎉</div>
-              <h3>Fichier prêt à être partagé !</h3>
-              <p class="success-file-name">{{ uploadResult()?.originalName }}</p>
+              <!-- UPLOADING State Progress -->
+              <div *ngIf="uploadState() === 'UPLOADING'" class="progress-zone">
+                <div class="upload-icon-anim">⚡</div>
+                <h3>Téléversement en cours...</h3>
+                <p class="file-name-progress">{{ selectedFile?.name }}</p>
+                
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" [style.width.%]="progressPercent()"></div>
+                </div>
+                <span class="progress-text">{{ progressPercent() }}%</span>
+              </div>
 
-              <div class="link-box">
-                <input type="text" [value]="getDownloadUrl()" readonly #linkInput class="link-input"/>
-                <button (click)="copyLink(linkInput)" class="btn-copy">
-                  {{ copied() ? 'Copié !' : 'Copier' }}
+              <!-- SUCCESS State Result -->
+              <div *ngIf="uploadState() === 'SUCCESS' && uploadResult()" class="success-zone">
+                <div class="success-icon">🎉</div>
+                <h3>Fichier prêt à être partagé !</h3>
+                <p class="success-file-name">{{ uploadResult()?.originalName }}</p>
+
+                <div class="link-box">
+                  <input type="text" [value]="getDownloadUrl()" readonly #linkInput class="link-input"/>
+                  <button (click)="copyLink(linkInput)" class="btn-copy">
+                    {{ copied() ? 'Copié !' : 'Copier' }}
+                  </button>
+                </div>
+
+                <button (click)="resetUpload()" class="btn-secondary reset-btn">
+                  Partager un autre fichier
                 </button>
               </div>
-
-              <button (click)="resetUpload()" class="btn-secondary reset-btn">
-                Partager un autre fichier
-              </button>
             </div>
           </div>
-        </div>
 
-        <div class="global-error" *ngIf="errorMessage()">
-          {{ errorMessage() }}
+          <div class="global-error" *ngIf="errorMessage()">
+            {{ errorMessage() }}
+          </div>
         </div>
+      </main>
 
-      </div>
+      <!-- Shared BottomNavBar -->
+      <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()">
+        <a routerLink="/" class="nav-item active">
+          <span class="nav-item-icon">📤</span>
+          <span>Transfert</span>
+        </a>
+        <a routerLink="/dashboard" class="nav-item">
+          <span class="nav-item-icon">📁</span>
+          <span>Mon Espace</span>
+        </a>
+      </nav>
     </div>
   `,
   styles: [`
-    .upload-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: calc(100vh - 120px);
-      padding: 24px;
-    }
     .main-card {
       width: 100%;
       max-width: 900px;
@@ -148,21 +153,16 @@ import { RouterLink } from '@angular/router';
       flex-direction: column;
       gap: 32px;
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 20px;
+    .logo-wrapper {
+      cursor: pointer;
     }
     .logo {
       font-family: var(--font-title);
       font-weight: 800;
       font-size: 1.8rem;
-      background: linear-gradient(135deg, #fff 0%, var(--primary-hover) 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      cursor: pointer;
       text-decoration: none;
     }
     .nav {
@@ -180,11 +180,11 @@ import { RouterLink } from '@angular/router';
       border-radius: 10px;
     }
     .text-danger {
-      color: var(--accent) !important;
-      border-color: rgba(255, 0, 127, 0.2) !important;
+      color: var(--primary) !important;
+      border-color: rgba(232, 93, 104, 0.2) !important;
     }
     .text-danger:hover {
-      background: rgba(255, 0, 127, 0.1) !important;
+      background: rgba(232, 93, 104, 0.08) !important;
     }
     .card-content {
       display: flex;
@@ -206,9 +206,10 @@ import { RouterLink } from '@angular/router';
     }
     .section-title {
       font-family: var(--font-title);
-      font-weight: 600;
-      font-size: 1.2rem;
+      font-weight: 700;
+      font-size: 1.3rem;
       margin-bottom: 12px;
+      color: var(--text-main);
     }
     .settings-form {
       display: flex;
@@ -252,17 +253,18 @@ import { RouterLink } from '@angular/router';
       padding: 40px;
       cursor: pointer;
       transition: all 0.3s ease;
-      background: rgba(255, 255, 255, 0.01);
+      background: rgba(249, 249, 249, 0.5);
     }
     .drop-zone:hover, .drag-over {
-      border-color: var(--primary-hover);
-      background: rgba(138, 43, 226, 0.05);
-      box-shadow: 0 0 20px rgba(138, 43, 226, 0.1);
+      border-color: var(--primary);
+      background: rgba(232, 93, 104, 0.04);
+      box-shadow: 0 0 20px rgba(232, 93, 104, 0.05);
     }
     .drop-icon {
       font-size: 3.5rem;
       margin-bottom: 16px;
       transition: transform 0.3s ease;
+      display: inline-block;
     }
     .drop-zone:hover .drop-icon {
       transform: translateY(-8px);
@@ -297,14 +299,14 @@ import { RouterLink } from '@angular/router';
     .progress-bar-container {
       width: 100%;
       height: 8px;
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--bg-primary);
       border-radius: 4px;
       overflow: hidden;
       margin-bottom: 8px;
     }
     .progress-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+      background: linear-gradient(90deg, var(--accent) 0%, var(--primary) 100%);
       transition: width 0.1s linear;
     }
     .progress-text {
@@ -318,7 +320,7 @@ import { RouterLink } from '@angular/router';
     .link-box {
       display: flex;
       width: 100%;
-      background: rgba(0, 0, 0, 0.2);
+      background: var(--bg-primary);
       border: 1px solid var(--glass-border);
       border-radius: 12px;
       padding: 6px;
@@ -334,7 +336,7 @@ import { RouterLink } from '@angular/router';
       font-size: 0.9rem;
     }
     .btn-copy {
-      background: var(--primary);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
       border: none;
       color: #fff;
       padding: 8px 20px;
@@ -342,17 +344,17 @@ import { RouterLink } from '@angular/router';
       cursor: pointer;
       font-weight: 600;
       font-size: 0.85rem;
-      transition: background 0.2s ease;
+      transition: opacity 0.2s ease;
     }
     .btn-copy:hover {
-      background: var(--primary-hover);
+      opacity: 0.9;
     }
     .reset-btn {
       width: 100%;
     }
     .global-error {
-      background: rgba(255, 0, 127, 0.1);
-      border: 1px solid var(--accent);
+      background: rgba(232, 93, 104, 0.08);
+      border: 1px solid var(--primary);
       color: var(--text-main);
       padding: 12px;
       border-radius: 12px;

@@ -9,95 +9,107 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="dashboard-container animate-fade-in">
-      <div class="glass-panel dashboard-card">
-        
-        <!-- Header -->
-        <header class="header">
-          <h1 class="logo" routerLink="/">DataShare</h1>
-          <nav class="nav">
-            <button routerLink="/" class="btn-primary nav-btn">Partager un fichier</button>
-            <button (click)="logout()" class="btn-secondary nav-btn text-danger">Déconnexion</button>
-          </nav>
-        </header>
-
-        <!-- Profile Section -->
-        <div class="profile-section">
-          <h2>Mon Espace Personnel</h2>
-          <p class="user-email">Session active : {{ authService.currentUser()?.email }}</p>
+    <div class="page-layout animate-fade-in">
+      <!-- Shared TopAppBar -->
+      <header class="top-app-bar" data-purpose="header-navigation">
+        <div class="logo-wrapper" routerLink="/">
+          <span class="logo" id="brand-logo">DataShare</span>
         </div>
+        <nav class="nav">
+          <span *ngIf="authService.isLoggedIn()" class="user-greeting">
+            Bonjour, <strong>{{ authService.currentUser()?.firstName || authService.currentUser()?.email }}</strong>
+          </span>
+          <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger">
+            Déconnexion
+          </button>
+        </nav>
+      </header>
 
-        <!-- Files List -->
-        <div class="files-section">
-          <h3 class="section-title">Mes partages actifs ({{ files().length }})</h3>
-
-          <!-- Loading -->
-          <div *ngIf="loading()" class="loader-container">
-            <div class="loader"></div>
-            <p>Chargement de l'historique...</p>
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="glass-panel dashboard-card">
+          <!-- Profile Section -->
+          <div class="profile-section">
+            <h2>Mon Espace Personnel</h2>
+            <p class="user-email">Session active : {{ authService.currentUser()?.email }}</p>
           </div>
 
-          <!-- Empty state -->
-          <div *ngIf="!loading() && files().length === 0" class="empty-state">
-            <div class="empty-icon">📁</div>
-            <h4>Aucun fichier téléversé pour le moment</h4>
-            <p>Commencez à partager des fichiers en toute sécurité dès aujourd'hui.</p>
-            <button routerLink="/" class="btn-primary">Partager un fichier</button>
-          </div>
+          <!-- Files List -->
+          <div class="files-section">
+            <h3 class="section-title">Mes partages actifs ({{ files().length }})</h3>
 
-          <!-- Grid/List of files -->
-          <div *ngIf="!loading() && files().length > 0" class="files-list">
-            <div *ngFor="let file of files()" class="file-item glass-panel">
-              
-              <div class="file-info-col">
-                <span class="file-icon">{{ file.isPasswordProtected ? '🔒' : '📄' }}</span>
-                <div class="file-details">
-                  <h4 class="file-name" [title]="file.originalName">{{ file.originalName }}</h4>
-                  <div class="file-sub-details">
-                    <span>{{ formatBytes(file.fileSize) }}</span>
-                    <span class="divider">•</span>
-                    <span>Mis en ligne le {{ formatDate(file.uploadDate) }}</span>
+            <!-- Loading -->
+            <div *ngIf="loading()" class="loader-container">
+              <div class="loader"></div>
+              <p>Chargement de l'historique...</p>
+            </div>
+
+            <!-- Empty state -->
+            <div *ngIf="!loading() && files().length === 0" class="empty-state">
+              <div class="empty-icon">📁</div>
+              <h4>Aucun fichier téléversé pour le moment</h4>
+              <p>Commencez à partager des fichiers en toute sécurité dès aujourd'hui.</p>
+              <button routerLink="/" class="btn-primary">Partager un fichier</button>
+            </div>
+
+            <!-- Grid/List of files -->
+            <div *ngIf="!loading() && files().length > 0" class="files-list">
+              <div *ngFor="let file of files()" class="file-item glass-panel">
+                
+                <div class="file-info-col">
+                  <span class="file-icon">{{ file.isPasswordProtected ? '🔒' : '📄' }}</span>
+                  <div class="file-details">
+                    <h4 class="file-name" [title]="file.originalName">{{ file.originalName }}</h4>
+                    <div class="file-sub-details">
+                      <span>{{ formatBytes(file.fileSize) }}</span>
+                      <span class="divider">•</span>
+                      <span>Mis en ligne le {{ formatDate(file.uploadDate) }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Tags -->
-              <div class="tags-col" *ngIf="file.tags && file.tags.length > 0">
-                <span class="tag-badge" *ngFor="let tag of file.tags">#{{ tag }}</span>
-              </div>
+                <!-- Tags -->
+                <div class="tags-col" *ngIf="file.tags && file.tags.length > 0">
+                  <span class="tag-badge" *ngFor="let tag of file.tags">#{{ tag }}</span>
+                </div>
 
-              <!-- Expiry date badge -->
-              <div class="expiry-col">
-                <span class="expiry-label">Expire le</span>
-                <span class="expiry-value">{{ formatDate(file.expiryDate) }}</span>
-              </div>
+                <!-- Expiry date badge -->
+                <div class="expiry-col">
+                  <span class="expiry-label">Expire le</span>
+                  <span class="expiry-value">{{ formatDate(file.expiryDate) }}</span>
+                </div>
 
-              <!-- Actions -->
-              <div class="actions-col">
-                <button (click)="copyLink(file.uuid)" class="btn-action btn-copy" [class.copied]="copiedUuid() === file.uuid">
-                  {{ copiedUuid() === file.uuid ? 'Copié !' : 'Copier le lien' }}
-                </button>
-                <button (click)="deleteFile(file.uuid)" class="btn-action btn-delete">
-                  Supprimer
-                </button>
-              </div>
+                <!-- Actions -->
+                <div class="actions-col">
+                  <button (click)="copyLink(file.uuid)" class="btn-action btn-copy" [class.copied]="copiedUuid() === file.uuid">
+                    {{ copiedUuid() === file.uuid ? 'Copié !' : 'Copier le lien' }}
+                  </button>
+                  <button (click)="deleteFile(file.uuid)" class="btn-action btn-delete">
+                    Supprimer
+                  </button>
+                </div>
 
+              </div>
             </div>
+
           </div>
-
         </div>
+      </main>
 
-      </div>
+      <!-- Shared BottomNavBar -->
+      <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()">
+        <a routerLink="/" class="nav-item">
+          <span class="nav-item-icon">📤</span>
+          <span>Transfert</span>
+        </a>
+        <a routerLink="/dashboard" class="nav-item active">
+          <span class="nav-item-icon">📁</span>
+          <span>Mon Espace</span>
+        </a>
+      </nav>
     </div>
   `,
   styles: [`
-    .dashboard-container {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: calc(100vh - 120px);
-      padding: 24px;
-    }
     .dashboard-card {
       width: 100%;
       max-width: 1100px;
@@ -106,25 +118,21 @@ import { RouterLink } from '@angular/router';
       flex-direction: column;
       gap: 32px;
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 20px;
+    .logo-wrapper {
+      cursor: pointer;
     }
     .logo {
       font-family: var(--font-title);
       font-weight: 800;
       font-size: 1.8rem;
-      background: linear-gradient(135deg, #fff 0%, var(--primary-hover) 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      cursor: pointer;
       text-decoration: none;
     }
     .nav {
       display: flex;
+      align-items: center;
       gap: 16px;
     }
     .nav-btn {
@@ -133,11 +141,11 @@ import { RouterLink } from '@angular/router';
       border-radius: 10px;
     }
     .text-danger {
-      color: var(--accent) !important;
-      border-color: rgba(255, 0, 127, 0.2) !important;
+      color: var(--primary) !important;
+      border-color: rgba(232, 93, 104, 0.2) !important;
     }
     .text-danger:hover {
-      background: rgba(255, 0, 127, 0.1) !important;
+      background: rgba(232, 93, 104, 0.08) !important;
     }
     .profile-section {
       display: flex;
@@ -147,11 +155,13 @@ import { RouterLink } from '@angular/router';
     .profile-section h2 {
       font-family: var(--font-title);
       font-size: 1.8rem;
-      font-weight: 700;
+      font-weight: 800;
+      color: var(--text-main);
     }
     .user-email {
       color: var(--text-muted);
       font-size: 0.95rem;
+      font-weight: 500;
     }
     .files-section {
       display: flex;
@@ -161,9 +171,9 @@ import { RouterLink } from '@angular/router';
     .section-title {
       font-family: var(--font-title);
       font-size: 1.15rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-weight: 700;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--glass-border);
       padding-bottom: 8px;
     }
     .loader-container {
@@ -174,7 +184,7 @@ import { RouterLink } from '@angular/router';
     }
     .loader {
       border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: var(--primary-hover);
+      border-top-color: var(--primary);
       border-radius: 50%;
       width: 40px;
       height: 40px;
@@ -197,7 +207,7 @@ import { RouterLink } from '@angular/router';
     }
     .empty-state h4 {
       font-size: 1.2rem;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 8px;
     }
     .empty-state p {
@@ -215,7 +225,7 @@ import { RouterLink } from '@angular/router';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 24px;
+      padding: 16px 24px;
       border-radius: 16px;
       gap: 24px;
       flex-wrap: wrap;
@@ -237,18 +247,20 @@ import { RouterLink } from '@angular/router';
     }
     .file-name {
       font-size: 1.05rem;
-      font-weight: 600;
+      font-weight: 700;
       word-break: break-all;
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      color: var(--text-main);
     }
     .file-sub-details {
       display: flex;
       font-size: 0.8rem;
       color: var(--text-muted);
       gap: 8px;
+      font-weight: 500;
     }
     .divider {
       color: var(--text-disabled);
@@ -261,12 +273,13 @@ import { RouterLink } from '@angular/router';
       min-width: 120px;
     }
     .tag-badge {
-      background: rgba(138, 43, 226, 0.1);
-      border: 1px solid rgba(138, 43, 226, 0.2);
-      color: var(--text-muted);
+      background: rgba(232, 93, 104, 0.08);
+      border: 1px solid rgba(232, 93, 104, 0.15);
+      color: var(--primary);
       padding: 2px 8px;
       border-radius: 100px;
       font-size: 0.75rem;
+      font-weight: 500;
     }
     .expiry-col {
       display: flex;
@@ -278,10 +291,12 @@ import { RouterLink } from '@angular/router';
       font-size: 0.75rem;
       color: var(--text-muted);
       text-transform: uppercase;
+      font-weight: 600;
     }
     .expiry-value {
-      font-weight: 600;
+      font-weight: 700;
       font-size: 0.9rem;
+      color: var(--text-main);
     }
     .actions-col {
       display: flex;
@@ -300,28 +315,30 @@ import { RouterLink } from '@angular/router';
       font-family: var(--font-title);
     }
     .btn-copy {
-      background: rgba(138, 43, 226, 0.15);
-      border: 1px solid rgba(138, 43, 226, 0.3);
+      background: rgba(249, 161, 117, 0.1);
+      border: 1px solid rgba(249, 161, 117, 0.2);
       color: var(--text-main);
     }
     .btn-copy:hover {
-      background: var(--primary);
-      box-shadow: 0 0 10px var(--primary-glow);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 10px var(--primary-glow);
     }
     .copied {
-      background: #00e676 !important;
-      border-color: #00e676 !important;
-      color: #0b0813 !important;
+      background: #e8f5e9 !important;
+      border-color: #81c784 !important;
+      color: #2e7d32 !important;
     }
     .btn-delete {
-      background: rgba(255, 0, 127, 0.15);
-      border: 1px solid rgba(255, 0, 127, 0.3);
-      color: var(--accent);
+      background: rgba(232, 93, 104, 0.08);
+      border: 1px solid rgba(232, 93, 104, 0.2);
+      color: var(--primary);
     }
     .btn-delete:hover {
-      background: var(--accent);
+      background: var(--primary);
       color: #fff;
-      box-shadow: 0 0 10px var(--accent-glow);
+      box-shadow: 0 4px 10px var(--primary-glow);
     }
     @media (max-width: 900px) {
       .file-item {

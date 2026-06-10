@@ -11,8 +11,8 @@ import { AuthService } from '../auth.service';
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <div class="page-layout animate-fade-in">
-      <!-- Header -->
-      <header class="header" data-purpose="header-navigation">
+      <!-- Shared TopAppBar -->
+      <header class="top-app-bar" data-purpose="header-navigation">
         <div class="logo-wrapper" routerLink="/">
           <span class="logo" id="brand-logo">DataShare</span>
         </div>
@@ -156,14 +156,6 @@ import { AuthService } from '../auth.service';
       margin: 0 auto;
       padding: 24px;
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--glass-border);
-      padding-bottom: 20px;
-      width: 100%;
-    }
     .logo-wrapper {
       cursor: pointer;
     }
@@ -171,7 +163,7 @@ import { AuthService } from '../auth.service';
       font-family: var(--font-title);
       font-weight: 800;
       font-size: 1.8rem;
-      background: linear-gradient(135deg, #fff 0%, var(--primary-hover) 100%);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       text-decoration: none;
@@ -191,11 +183,11 @@ import { AuthService } from '../auth.service';
       border-radius: 10px;
     }
     .text-danger {
-      color: var(--accent) !important;
-      border-color: rgba(255, 0, 127, 0.2) !important;
+      color: var(--primary) !important;
+      border-color: rgba(232, 93, 104, 0.2) !important;
     }
     .text-danger:hover {
-      background: rgba(255, 0, 127, 0.1) !important;
+      background: rgba(232, 93, 104, 0.08) !important;
     }
     .main-content {
       flex-grow: 1;
@@ -213,8 +205,8 @@ import { AuthService } from '../auth.service';
       align-items: center;
     }
     .loader {
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: var(--primary-hover);
+      border: 3px solid rgba(0, 0, 0, 0.05);
+      border-top-color: var(--primary);
       border-radius: 50%;
       width: 50px;
       height: 50px;
@@ -239,7 +231,7 @@ import { AuthService } from '../auth.service';
       display: flex;
       align-items: center;
       gap: 16px;
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--bg-primary);
       border: 1px solid var(--glass-border);
       padding: 16px;
       border-radius: 16px;
@@ -248,7 +240,7 @@ import { AuthService } from '../auth.service';
       text-align: left;
     }
     .file-icon-wrapper {
-      background: rgba(138, 43, 226, 0.1);
+      background: rgba(232, 93, 104, 0.08);
       padding: 10px;
       border-radius: 10px;
       display: flex;
@@ -259,7 +251,7 @@ import { AuthService } from '../auth.service';
     .file-svg-icon {
       width: 24px;
       height: 24px;
-      color: var(--primary-hover);
+      color: var(--primary);
     }
     .file-meta {
       flex: 1;
@@ -284,8 +276,8 @@ import { AuthService } from '../auth.service';
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(30, 144, 255, 0.08);
-      border: 1px solid rgba(30, 144, 255, 0.2);
+      background: rgba(30, 144, 255, 0.05);
+      border: 1px solid rgba(30, 144, 255, 0.15);
       padding: 12px 16px;
       border-radius: 12px;
       margin-bottom: 24px;
@@ -300,7 +292,7 @@ import { AuthService } from '../auth.service';
     }
     .info-text {
       font-size: 0.85rem;
-      color: #79b7ff;
+      color: #1e40af;
       font-weight: 500;
       margin: 0;
       line-height: 1.4;
@@ -329,9 +321,9 @@ import { AuthService } from '../auth.service';
       width: 100%;
     }
     .tag-badge {
-      background: rgba(138, 43, 226, 0.15);
-      border: 1px solid rgba(138, 43, 226, 0.3);
-      color: var(--text-main);
+      background: rgba(232, 93, 104, 0.08);
+      border: 1px solid rgba(232, 93, 104, 0.15);
+      color: var(--primary);
       padding: 4px 12px;
       border-radius: 100px;
       font-size: 0.8rem;

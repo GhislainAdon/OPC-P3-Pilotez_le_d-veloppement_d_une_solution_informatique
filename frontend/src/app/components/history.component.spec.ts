@@ -44,6 +44,7 @@ describe('HistoryComponent', () => {
     };
 
     authServiceMock = {
+      isLoggedIn: vi.fn().mockReturnValue(true),
       currentUser: signal({ email: 'test@example.com', firstName: 'John' }),
       logout: vi.fn()
     };
