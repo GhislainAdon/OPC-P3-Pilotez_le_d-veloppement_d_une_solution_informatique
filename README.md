@@ -20,7 +20,7 @@ L'application respecte une architecture découplée avec un backend développé 
   - Durée de vie configurable (entre **1 et 7 jours**).
 - **Tableau de Bord Utilisateur** : Historique des partages actifs, copie rapide du lien de téléchargement, suppression à la demande (physique et logique).
 - **Tâche Planifiée (Cron)** : Script de nettoyage quotidien automatique pour supprimer physiquement et logiquement tous les fichiers expirés.
-- **Expérience Utilisateur Premium** : Interface Purple/Indigo Dark Mode avec design glassmorphism, animations et adaptabilité mobile complète.
+- **Expérience Utilisateur Premium** : Interface Vibrant Pulse avec des dégradés chaleureux (Orange vers Rose), typographie moderne Hanken Grotesk et adaptabilité mobile complète.
 
 ---
 
@@ -36,7 +36,7 @@ L'application respecte une architecture découplée avec un backend développé 
 ### Frontend
 - **Framework** : Angular 22.0.0 (Node 22.22.3)
 - **Gestion du State** : Angular Signals
-- **Style** : CSS standard, Typographies Outfit & Inter (Google Fonts)
+- **Style** : CSS standard, Typographie Hanken Grotesk (Google Fonts)
 - **Testing** : Vitest 4.0.8, Angular unit-test builder
 
 ### DevOps & Conteneurisation
@@ -114,5 +114,3 @@ Pour une description plus approfondie des protocoles de qualité, sécurité, pe
 - 🔒 **[Plan de Sécurité (SECURITY.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/SECURITY.md)** : Gestion des accès, hachage, validation d'input et politique de sécurité.
 - ⚡ **[Plan de Performance (PERF.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/PERF.md)** : Diagnostics de scalabilité, gestion de gros volumes de fichiers (limite 1 Go) et audits de performance.
 - 🛠️ **[Plan de Maintenance (MAINTENANCE.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/MAINTENANCE.md)** : Gestion du cycle de vie opérationnel, logs, alertes et sauvegardes.
-
-Pour les guides d'explication de soutenance et speech oral, veuillez consulter la branche `guide`.
