@@ -29,57 +29,44 @@ DataShare est une application web à architecture découplée (découplage front
 
 **Stockage Physique (Volume Docker)** — Répertoire /app/uploads monté en volume persistant, isolé du serveur web.
 
-┌─────────────────────────────────────────────────────────────────┐
+```mermaid
+flowchart TD
+    subgraph Client ["Couche Client (Port 80)"]
+        Frontend["Angular 22 SPA<br/>(Servi par Nginx — lazy-loaded routes, Signals)"]
+    end
 
-│ Client navigateur │
+    subgraph Backend ["Couche Backend (Port 8080)"]
+        direction TB
+        Security["JwtAuthenticationFilter"]
+        Controllers["REST Controllers<br/>(AuthController, FileController)"]
+        Services["Services Métier<br/>(AuthService, FileMetadataService, FileStorageService)"]
+        Cron["Tâche Cron<br/>(Purge automatique à minuit)"]
+        
+        Security --> Controllers
+        Controllers --> Services
+        Cron -.-> Services
+    end
 
-│ Angular 22 SPA │
+    subgraph Stockage ["Couche Données & Stockage"]
+        Database[("PostgreSQL 16 :5432<br/>Tables: users, file_metadata, tags")]
+        Volume["Volume Docker<br/>(/app/uploads)<br/>Fichiers renommés UUID v4"]
+    end
 
-│ (Nginx :80 — lazy-loaded routes, Signals) │
+    Frontend -- "REST API + JWT (Bearer Token)<br/>http://localhost:8080/api" --> Security
+    Services -- "Spring Data JPA / Hibernate" --> Database
+    Services -- "java.nio FileSystem" --> Volume
 
-└───────────────────────┬─────────────────────────────────────────┘
+    %% Styling
+    classDef clientStyle fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#1e1b4b;
+    classDef backendStyle fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#064e3b;
+    classDef storageStyle fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f;
+    classDef componentStyle fill:#ffffff,stroke:#94a3b8,stroke-width:1px,color:#1e293b;
 
-│ REST API + JWT (Bearer Token)
-
-│ http://localhost:8080/api
-
-┌───────────────────────▼─────────────────────────────────────────┐
-
-│ Spring Boot 4.0.6 (Java 21) — :8080 │
-
-│ ┌─────────────────────────────────────────────────────────┐ │
-
-│ │ JwtAuthenticationFilter → REST Controllers │ │
-
-│ │ AuthController / FileController │ │
-
-│ ├─────────────────────────────────────────────────────────┤ │
-
-│ │ Services Métier │ │
-
-│ │ AuthService | FileMetadataService | FileStorageService │ │
-
-│ ├─────────────────────────────────────────────────────────┤ │
-
-│ │ Tâche Cron (purge quotidienne minuit) │ │
-
-│ └───────┬─────────────────────────────┬───────────────────┘ │
-
-│ │ Spring Data JPA/Hibernate │ java.nio FileSystem │
-
-└──────────┼─────────────────────────────┼───────────────────────-┘
-
-│ │
-
-┌──────────▼────────────┐ ┌────────────▼────────────────────────┐
-
-│ PostgreSQL 16 :5432 │ │ Volume Docker /app/uploads │
-
-│ tables: users, │ │ Fichiers renommés UUID v4 │
-
-│ file\_metadata, tags │ │ (isolés du serveur web) │
-
-└───────────────────────┘ └────────────────────────────────────-┘
+    class Client,Frontend clientStyle;
+    class Backend backendStyle;
+    class Storage,Database,Volume storageStyle;
+    class Security,Controllers,Services,Cron componentStyle;
+```
 
 ## **1.3 Flux de Communication**
 
