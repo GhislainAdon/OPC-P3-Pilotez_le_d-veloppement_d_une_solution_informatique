@@ -91,19 +91,41 @@ graph TD
 ## 🧪 Stratégie de Test & Qualité
 
 ### 1. Tests Unitaires & d'Intégration Backend
-Pour exécuter les 32 tests unitaires et d'intégration Spring Boot :
+Pour exécuter les 32 tests unitaires et d'intégration Spring Boot en local :
 ```bash
 cd backend
 mvn test
 ```
 
 ### 2. Tests Unitaires Frontend
-Pour exécuter les 34 tests unitaires Angular / Vitest :
+Pour exécuter les 34 tests unitaires Angular / Vitest en local :
 ```bash
 cd frontend
 npm install
 npm test
 ```
+
+### 3. Exécution des Tests via Docker (Environnement Isolé)
+Pour lancer les suites de tests dans des conteneurs isolés (par exemple sur Git Bash sous Windows) sans dépendances locales :
+- **Tests Backend (JUnit)** :
+  ```bash
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    --network=opc-p3-pilotez_le_d-veloppement_d_une_solution_informatique_default \
+    -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/datashare \
+    -v "$(pwd)/backend:/app" \
+    -w /app \
+    maven:3.9.8-eclipse-temurin-21 \
+    mvn test
+  ```
+- **Tests Frontend (Vitest)** :
+  ```bash
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "$(pwd)/frontend:/app" \
+    -v /app/node_modules \
+    -w /app \
+    node:22.22.3-alpine \
+    sh -c "npm install && npm run test -- --watch=false"
+  ```
 
 ---
 
