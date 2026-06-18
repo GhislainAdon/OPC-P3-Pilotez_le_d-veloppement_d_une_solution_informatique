@@ -11,11 +11,13 @@
   "portsAttributes": {
     "80": {
       "label": "Frontend (DataShare)",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
     },
     "8080": {
       "label": "Backend API",
-      "onAutoForward": "ignore"
+      "onAutoForward": "ignore",
+      "visibility": "public"
     }
   },
   "postStartCommand": "docker compose up -d"
