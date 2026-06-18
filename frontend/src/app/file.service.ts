@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getApiBaseUrl } from './api.config';
 
 export interface FileResponse {
   uuid: string;
@@ -19,7 +20,7 @@ export interface FileResponse {
 })
 export class FileService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:8080/api/files';
+  private readonly apiUrl = `${getApiBaseUrl()}/api/files`;
 
   uploadFile(
     file: File,

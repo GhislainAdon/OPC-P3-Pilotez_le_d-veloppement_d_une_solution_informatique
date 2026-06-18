@@ -1,6 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
+import { getApiBaseUrl } from './api.config';
 
 export interface UserResponse {
   token: string;
@@ -14,7 +15,7 @@ export interface UserResponse {
 })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:8080/api/auth';
+  private readonly apiUrl = `${getApiBaseUrl()}/api/auth`;
   
   // Use Angular Signals to track current user state
   readonly currentUser = signal<UserResponse | null>(null);
