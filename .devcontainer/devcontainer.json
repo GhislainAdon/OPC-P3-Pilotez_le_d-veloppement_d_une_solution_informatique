@@ -1,0 +1,22 @@
+{
+  "name": "DataShare (Codespaces)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  "forwardPorts": [80, 8080],
+  "portsAttributes": {
+    "80": {
+      "label": "Frontend (DataShare)",
+      "onAutoForward": "openBrowser"
+    },
+    "8080": {
+      "label": "Backend API",
+      "onAutoForward": "ignore"
+    }
+  },
+  "postStartCommand": "docker compose up -d"
+}

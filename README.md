@@ -86,6 +86,12 @@ graph TD
    - Backend API : `http://localhost:8080/api`
    - Base de données PostgreSQL : `localhost:5432`
 
+### 🎮 Démo Interactive en Ligne (GitHub Codespaces)
+
+Vous pouvez également lancer la démo de l'application en un clic dans votre navigateur via **GitHub Codespaces**. L'environnement de conteneurs (base de données, backend et frontend) sera entièrement configuré et démarré automatiquement :
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=solution&repo=GhislainAdon/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique)
+
 ---
 
 ## 🧪 Stratégie de Test & Qualité
