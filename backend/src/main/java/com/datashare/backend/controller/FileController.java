@@ -4,9 +4,11 @@ import com.datashare.backend.dto.FileResponse;
 import com.datashare.backend.service.FileMetadataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import java.nio.charset.StandardCharsets;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -61,9 +63,13 @@ public class FileController {
             }
         }
 
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(details.originalName(), StandardCharsets.UTF_8)
+                .build();
+
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + details.originalName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .body(resource);
     }
 
