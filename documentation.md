@@ -6,10 +6,10 @@ Documentation Technique
 
 | **Livrable** | **Valeur** |
 | --- | --- |
-| Projet | P3 — Expert DevOps (RNCP 41330) |
+| Projet | Plateforme de partage de fichiers |
 | Auteur | Adon Yapo Aimé Claude Ghislain |
-| Organisation | ICTNeo SRL |
-| Référence | Adon\_Ghislain\_1\_documentation.docx |
+| Organisation | Datashare |
+| Référence | Datashare doc technique |
 | Date | Juin 2026 |
 | Version | 1.0 |
 
@@ -17,7 +17,7 @@ Documentation Technique
 
 ## **1.1 Vision Globale**
 
-DataShare est une application web à architecture découplée (découplage frontend/backend) déployée via Docker Compose. Elle s'inspire de WeTransfer pour offrir un partage de fichiers sécurisé avec des fonctionnalités d'authentification, de chiffrement par mot de passe et de nettoyage automatique.
+DataShare est une application web à architecture découplée, conçue pour répondre au besoin des freelances et petites entreprises de partager des fichiers volumineux de façon sécurisée et souveraine, sans dépendance à un service cloud tiers. Elle propose une authentification sécurisée, un partage par lien à durée de vie contrôlée, une protection optionnelle par mot de passe, et un nettoyage automatique des fichiers expirés.
 
 ## **1.2 Diagramme d'Architecture**
 
