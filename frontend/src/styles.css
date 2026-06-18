@@ -226,8 +226,8 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 100;
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.02);
+  z-index: 120; /* High z-index to overlay nicely */
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .nav-item {
@@ -249,4 +249,32 @@ body {
 
 .nav-item-icon {
   font-size: 1.35rem;
+}
+
+/* Page Layout & Main Content Spacing */
+.page-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0 100px; /* Space reserved at bottom for bottom nav bar */
+}
+
+@media (max-width: 576px) {
+  .page-layout {
+    padding: 16px;
+  }
+  .main-content {
+    padding: 24px 0 80px;
+  }
 }

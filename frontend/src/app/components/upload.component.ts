@@ -131,18 +131,19 @@ import { RouterLink } from '@angular/router';
         </div>
       </main>
 
-      <!-- Shared BottomNavBar -->
-      <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()">
-        <a routerLink="/" class="nav-item active">
-          <span class="nav-item-icon">📤</span>
-          <span>Transfert</span>
-        </a>
-        <a routerLink="/dashboard" class="nav-item">
-          <span class="nav-item-icon">📁</span>
-          <span>Mon Espace</span>
-        </a>
-      </nav>
     </div>
+
+    <!-- Shared BottomNavBar -->
+    <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()">
+      <a routerLink="/" class="nav-item active">
+        <span class="nav-item-icon">📤</span>
+        <span>Transfert</span>
+      </a>
+      <a routerLink="/dashboard" class="nav-item">
+        <span class="nav-item-icon">📁</span>
+        <span>Mon Espace</span>
+      </a>
+    </nav>
   `,
   styles: [`
     .main-card {
