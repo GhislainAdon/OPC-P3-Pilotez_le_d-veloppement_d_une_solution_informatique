@@ -8,10 +8,8 @@
     },
     "ghcr.io/devcontainers/features/java:1": {
       "version": "21",
-      "jdkDistro": "temurin"
-    },
-    "ghcr.io/devcontainers/features/maven:1": {
-      "version": "latest"
+      "jdkDistro": "temurin",
+      "installMaven": "true"
     },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22.22.3"
