@@ -160,8 +160,8 @@ Pour lancer les suites de tests dans des conteneurs isolés (par exemple sur Git
 ## 📄 Documentation Qualité & DevOps
 
 Pour une description plus approfondie des protocoles de qualité, sécurité, performance et maintenance, veuillez consulter les plans de suivi dédiés :
-- 📈 **[Plan de Test (TESTING.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/TESTING.md)** : Rapport de couverture de test et stratégies.
-- 🔒 **[Plan de Sécurité (SECURITY.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/SECURITY.md)** : Gestion des accès, hachage, validation d'input et politique de sécurité.
-- ⚡ **[Plan de Performance (PERF.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/PERF.md)** : Diagnostics de scalabilité, gestion de gros volumes de fichiers (limite 1 Go) et audits de performance.
-- 🛠️ **[Plan de Maintenance (MAINTENANCE.md)](file:///c:/Users/adon1/Documents/DEVOPS%202025/Formation/Openclassroom/Formation-Expert-Draft/projet3-12-05-au-01-06/OPC-P3-Pilotez_le_d-veloppement_d_une_solution_informatique/MAINTENANCE.md)** : Gestion du cycle de vie opérationnel, logs, alertes et sauvegardes.
+- 📈 **[Plan de Test (TESTING.md)](TESTING.md)** : Rapport de couverture de test et stratégies.
+- 🔒 **[Plan de Sécurité (SECURITY.md)](SECURITY.md)** : Gestion des accès, hachage, validation d'input et politique de sécurité.
+- ⚡ **[Plan de Performance (PERF.md)](PERF.md)** : Diagnostics de scalabilité, gestion de gros volumes de fichiers (limite 1 Go) et audits de performance.
+- 🛠️ **[Plan de Maintenance (MAINTENANCE.md)](MAINTENANCE.md)** : Gestion du cycle de vie opérationnel, logs, alertes et sauvegardes.
 - 📓 **[Journal d'Utilisation de l'IA (Notion)](https://app.notion.com/p/37aee836963f81d1b2bed325c935df23?v=37aee836963f81099ad8000cb0c04500&source=copy_link)** : Journal de suivi de l'usage réfléchi et de l'analyse de l'IA tout au long du projet.

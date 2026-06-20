@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: DataShare API
+  description: |
+    API REST de la plateforme DataShare — partage sécurisé de fichiers avec
+    expiration automatique, protection optionnelle par mot de passe et
+    authentification stateless JWT.
+
+    ## Authentification
+    Les endpoints `/api/files/history` et `DELETE /api/files/{uuid}` requièrent
+    un jeton JWT dans l'en-tête `Authorization: Bearer <token>`. Le jeton est
+    obtenu via `POST /api/auth/login` ou `POST /api/auth/register`.
+
+    ## Validation des fichiers
+    Le téléversement applique une validation backend stricte :
+    - liste blanche d'extensions (voir FileValidationService.ALLOWED_EXTENSIONS)
+    - détection du type MIME réel par Apache Tika (analyse du contenu binaire)
+    - rejet des exécutables (.exe, .bat, .cmd, .sh, .msi, etc.)
+    - taille maximale 1 Go (configurée via spring.servlet.multipart.max-file-size)
+
+  version: 1.0.0
+  contact:
+    name: Ghislain Adon
+    email: esaticsrit1b@gmail.com
+servers:
+  - url: http://localhost:8080
+    description: Serveur local (Docker Compose)
+  - url: https://app.datashare.example
+    description: Production (placeholder)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Enregistrer un nouvel utilisateur
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Inscription réussie, renvoie un jeton JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email déjà utilisé
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Authentifier un utilisateur et obtenir un jeton JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/files/upload:
+    post:
+      tags: [Files]
+      summary: Téléverser un fichier (anonyme ou authentifié)
+      description: |
+        Le fichier est validé backend par liste blanche d'extensions + détection
+        Tika du type MIME réel. Le type renvoyé dans la réponse est celui détecté
+        par Tika (et non le Content-Type fourni par le client, qui est falsifiable).
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                expiryDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                  default: 7
+                password:
+                  type: string
+                  description: Mot de passe optionnel (minimum 6 caractères)
+                tags:
+                  type: array
+                  items:
+                    type: string
+              required: [file]
+      responses:
+        '201':
+          description: Fichier créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          description: Fichier rejeté (extension interdite, type MIME incohérent, fichier vide)
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+  /api/files/download/{uuid}/details:
+    get:
+      tags: [Files]
+      summary: Récupérer les métadonnées d'un fichier
+      security: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Métadonnées du fichier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          description: Fichier expiré
+
+  /api/files/download/{uuid}:
+    get:
+      tags: [Files]
+      summary: Télécharger un fichier
+      security: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: password
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Flux binaire du fichier
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/files/history:
+    get:
+      tags: [Files]
+      summary: Liste des fichiers téléversés par l'utilisateur authentifié
+      responses:
+        '200':
+          description: Liste des fichiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/files/{uuid}:
+    delete:
+      tags: [Files]
+      summary: Supprimer un fichier (propriétaire uniquement)
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Fichier supprimé (physique + métadonnées)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: L'utilisateur n'est pas propriétaire du fichier
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentification requise ou échouée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PayloadTooLarge:
+      description: Fichier trop volumineux (> 1 Go)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    RegisterRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [firstName, lastName, email, password]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+
+    FileResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+        originalName:
+          type: string
+        fileType:
+          type: string
+          description: Type MIME détecté par Tika
+        fileSize:
+          type: integer
+          format: int64
+        uploadDate:
+          type: string
+          format: date-time
+        expiryDate:
+          type: string
+          format: date-time
+        isExpired:
+          type: boolean
+        isPasswordProtected:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+          description: Message générique contrôlé (jamais le message brut d'une exception interne)

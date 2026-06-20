@@ -13,57 +13,73 @@ import { RouterLink } from '@angular/router';
   template: `
     <div class="page-layout animate-fade-in">
       <!-- Shared TopAppBar -->
-      <header class="top-app-bar" data-purpose="header-navigation">
-        <div class="logo-wrapper" routerLink="/">
+      <header class="top-app-bar" data-purpose="header-navigation" role="banner">
+        <div class="logo-wrapper" routerLink="/" role="link" aria-label="Retour à l'accueil DataShare">
           <span class="logo" id="brand-logo">DataShare</span>
         </div>
-        <nav class="nav">
-          <span *ngIf="authService.isLoggedIn()" class="user-greeting">
+        <nav class="nav" role="navigation" aria-label="Navigation principale">
+          <span *ngIf="authService.isLoggedIn()" class="user-greeting" aria-live="polite">
             Bonjour, <strong>{{ authService.currentUser()?.firstName || authService.currentUser()?.email }}</strong>
           </span>
-          <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger">
+          <button *ngIf="authService.isLoggedIn()" (click)="logout()" class="btn-secondary nav-btn text-danger"
+                  aria-label="Se déconnecter de DataShare">
             Déconnexion
           </button>
-          <button *ngIf="!authService.isLoggedIn()" routerLink="/login" class="btn-primary nav-btn" data-purpose="login-button">
+          <button *ngIf="!authService.isLoggedIn()" routerLink="/login" class="btn-primary nav-btn"
+                  data-purpose="login-button" aria-label="Se connecter à DataShare">
             Se connecter
           </button>
         </nav>
       </header>
 
       <!-- Main Content -->
-      <main class="main-content">
+      <main class="main-content" role="main">
         <div class="glass-panel main-card">
           <div class="card-content">
             <!-- Left side: Upload settings -->
-            <div class="settings-panel" [class.disabled]="uploadState() !== 'IDLE'">
+            <div class="settings-panel" [class.disabled]="uploadState() !== 'IDLE'"
+                 aria-disabled="{{ uploadState() !== 'IDLE' }}">
               <h3 class="section-title">Options de partage</h3>
-              <form [formGroup]="uploadForm" class="settings-form">
-                
+              <form [formGroup]="uploadForm" class="settings-form" role="form" aria-label="Options de partage de fichier">
+
                 <div class="form-group">
-                  <label class="form-label">Durée de validité (jours)</label>
+                  <label class="form-label" for="expiryDays">Durée de validité (jours)</label>
                   <div class="slider-wrapper">
-                    <input type="range" min="1" max="7" formControlName="expiryDays" class="range-slider" />
-                    <span class="slider-value">{{ uploadForm.value.expiryDays }} jours</span>
+                    <input type="range" min="1" max="7" formControlName="expiryDays" class="range-slider"
+                           id="expiryDays"
+                           aria-label="Durée de validité en jours, de 1 à 7"
+                           [attr.aria-valuenow]="uploadForm.value.expiryDays"
+                           aria-valuemin="1" aria-valuemax="7" />
+                    <span class="slider-value" aria-live="polite">{{ uploadForm.value.expiryDays }} jours</span>
                   </div>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">Protection par mot de passe</label>
-                  <input 
-                    type="password" 
-                    formControlName="password" 
-                    class="form-control" 
+                  <label class="form-label" for="password">Protection par mot de passe</label>
+                  <input
+                    type="password"
+                    formControlName="password"
+                    class="form-control"
                     placeholder="Laisser vide pour aucun"
+                    id="password"
+                    autocomplete="new-password"
+                    aria-label="Mot de passe optionnel pour protéger le téléchargement (laisser vide pour aucun)"
+                    aria-describedby="password-help"
                   />
+                  <small id="password-help" class="form-text text-muted">
+                    Optionnel — minimum 6 caractères.
+                  </small>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">Tags (Séparés par des virgules)</label>
-                  <input 
-                    type="text" 
-                    formControlName="tags" 
-                    class="form-control" 
+                  <label class="form-label" for="tags">Tags (Séparés par des virgules)</label>
+                  <input
+                    type="text"
+                    formControlName="tags"
+                    class="form-control"
                     placeholder="travail, pdf, important"
+                    id="tags"
+                    aria-label="Tags séparés par des virgules pour catégoriser le fichier"
                   />
                 </div>
               </form>
@@ -72,60 +88,82 @@ import { RouterLink } from '@angular/router';
             <!-- Right side: Dropzone or Progress or Result -->
             <div class="drop-panel">
               <!-- IDLE State Dropzone -->
-              <div 
-                *ngIf="uploadState() === 'IDLE'" 
+              <div
+                *ngIf="uploadState() === 'IDLE'"
                 class="drop-zone"
                 [class.drag-over]="isDragOver()"
                 (dragover)="onDragOver($event)"
                 (dragleave)="onDragLeave($event)"
                 (drop)="onDrop($event)"
                 (click)="fileInput.click()"
+                role="button"
+                tabindex="0"
+                aria-label="Zone de dépôt de fichier. Cliquez ou glissez-déposez un fichier ici."
+                aria-describedby="dropzone-help"
+                (keydown.enter)="fileInput.click()"
+                (keydown.space)="fileInput.click()"
               >
-                <input 
-                  type="file" 
-                  #fileInput 
-                  (change)="onFileSelected($event)" 
-                  style="display: none;" 
+                <input
+                  type="file"
+                  #fileInput
+                  (change)="onFileSelected($event)"
+                  style="display: none;"
+                  aria-label="Sélectionner un fichier à téléverser"
+                  [attr.aria-describedby]="'dropzone-help'"
                 />
-                <div class="drop-icon">📤</div>
+                <div class="drop-icon" aria-hidden="true">📤</div>
                 <h3>Glissez-déposez votre fichier ici</h3>
                 <p>ou cliquez pour parcourir vos dossiers</p>
-                <span class="file-limits">Taille max : 1 Go. Fichiers .exe/.bat interdits.</span>
+                <span class="file-limits" id="dropzone-help">Taille max : 1 Go. Fichiers .exe/.bat interdits.</span>
               </div>
 
               <!-- UPLOADING State Progress -->
-              <div *ngIf="uploadState() === 'UPLOADING'" class="progress-zone">
-                <div class="upload-icon-anim">⚡</div>
+              <div *ngIf="uploadState() === 'UPLOADING'" class="progress-zone"
+                   role="status" aria-live="polite" aria-atomic="true">
+                <div class="upload-icon-anim" aria-hidden="true">⚡</div>
                 <h3>Téléversement en cours...</h3>
                 <p class="file-name-progress">{{ selectedFile?.name }}</p>
-                
-                <div class="progress-bar-container">
+
+                <div class="progress-bar-container"
+                     role="progressbar"
+                     [attr.aria-valuenow]="progressPercent()"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     [attr.aria-label]="'Progression du téléversement de ' + (selectedFile?.name || 'fichier')">
                   <div class="progress-bar-fill" [style.width.%]="progressPercent()"></div>
                 </div>
-                <span class="progress-text">{{ progressPercent() }}%</span>
+                <span class="progress-text" aria-live="polite">{{ progressPercent() }}%</span>
               </div>
 
               <!-- SUCCESS State Result -->
-              <div *ngIf="uploadState() === 'SUCCESS' && uploadResult()" class="success-zone">
-                <div class="success-icon">🎉</div>
+              <div *ngIf="uploadState() === 'SUCCESS' && uploadResult()" class="success-zone"
+                   role="status" aria-live="polite">
+                <div class="success-icon" aria-hidden="true">🎉</div>
                 <h3>Fichier prêt à être partagé !</h3>
                 <p class="success-file-name">{{ uploadResult()?.originalName }}</p>
 
                 <div class="link-box">
-                  <input type="text" [value]="getDownloadUrl()" readonly #linkInput class="link-input"/>
-                  <button (click)="copyLink(linkInput)" class="btn-copy">
+                  <input type="text" [value]="getDownloadUrl()" readonly #linkInput class="link-input"
+                         aria-label="Lien de téléchargement du fichier"
+                         aria-describedby="copy-help" />
+                  <button (click)="copyLink(linkInput)" class="btn-copy"
+                          aria-label="Copier le lien de téléchargement dans le presse-papiers">
                     {{ copied() ? 'Copié !' : 'Copier' }}
                   </button>
                 </div>
+                <span id="copy-help" class="sr-only" aria-live="polite">
+                  {{ copied() ? 'Lien copié dans le presse-papiers' : '' }}
+                </span>
 
-                <button (click)="resetUpload()" class="btn-secondary reset-btn">
+                <button (click)="resetUpload()" class="btn-secondary reset-btn"
+                        aria-label="Téléverser un autre fichier">
                   Partager un autre fichier
                 </button>
               </div>
             </div>
           </div>
 
-          <div class="global-error" *ngIf="errorMessage()">
+          <div class="global-error" *ngIf="errorMessage()" role="alert" aria-live="assertive">
             {{ errorMessage() }}
           </div>
         </div>
@@ -134,13 +172,13 @@ import { RouterLink } from '@angular/router';
     </div>
 
     <!-- Shared BottomNavBar -->
-    <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()">
-      <a routerLink="/" class="nav-item active">
-        <span class="nav-item-icon">📤</span>
+    <nav class="bottom-nav-bar" *ngIf="authService.isLoggedIn()" role="navigation" aria-label="Navigation secondaire">
+      <a routerLink="/" class="nav-item active" aria-current="page">
+        <span class="nav-item-icon" aria-hidden="true">📤</span>
         <span>Transfert</span>
       </a>
       <a routerLink="/dashboard" class="nav-item">
-        <span class="nav-item-icon">📁</span>
+        <span class="nav-item-icon" aria-hidden="true">📁</span>
         <span>Mon Espace</span>
       </a>
     </nav>
@@ -362,6 +400,26 @@ import { RouterLink } from '@angular/router';
       font-size: 0.9rem;
       text-align: center;
       width: 100%;
+    }
+    /* Classe utilitaire d'accessibilité : visible uniquement par les lecteurs d'écran */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .form-text {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.75rem;
+    }
+    .text-muted {
+      color: var(--text-muted);
     }
     @media (max-width: 768px) {
       .settings-panel {
