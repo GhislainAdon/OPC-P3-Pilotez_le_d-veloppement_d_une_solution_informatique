@@ -48,14 +48,36 @@ L'application respecte une architecture découplée avec un backend développé 
 ## 📦 Architecture & Modèle de Données
 
 ### Diagramme d'Architecture
-```mermaid
-graph TD
-    Client[Angular 22 Client] <-->|REST API + JWT| Gateway[Spring Boot 4 REST Controller]
-    Gateway <--> Security[Spring Security / JWT Filter]
-    Security <--> Services[Services Métier]
-    Services <--> Database[(Base de Données PostgreSQL)]
-    Services <--> Storage[Stockage Local /app/uploads]
-    Services <--> Cron[Daily Clean Task]
+```text
++--------------------------------------------------------------------------+
+| Client navigateur                                                        |
+|                  Angular 22 SPA                                          |
+|         (Nginx :80 - lazy-loaded routes, Signals)                        |
++--------------------------------------------------------------------------+
+                   | REST API + JWT (Bearer Token)
+                   | http://localhost:8080/api
+                   V
++--------------------------------------------------------------------------+
+|         Spring Boot 4.0.6 (Java 21) - :8080                              |
+|                                                                          |
+|     +--------------------------------------------------------------+     |
+|     | JwtAuthenticationFilter  ->   REST Controllers               |     |
+|     | AuthController / FileController                              |     |
+|     +--------------------------------------------------------------+     |
+|     | Services Métier                                              |     |
+|     | AuthService | FileMetadataService | FileStorageService       |     |
+|     +--------------------------------------------------------------+     |
+|     | Tâche Cron   (purge quotidienne minuit)                      |     |
+|     +--------------------------------------------------------------+     |
+|             | Spring Data JPA/Hibernate      | java.nio FileSystem |     |
++-------------|--------------------------------|---------------------+-----+
+              |                                |
+              V                                V
++---------------------------+    +-----------------------------------------+
+| PostgreSQL 16   :5432     |    | Volume Docker /app/uploads              |
+| tables: users,            |    | Fichiers renommés UUID v4               |
+| file_metadata, tags       |    | (isolés du serveur web)                 |
++---------------------------+    +-----------------------------------------+
 ```
 
 ### Modèle de Données (MCD)
