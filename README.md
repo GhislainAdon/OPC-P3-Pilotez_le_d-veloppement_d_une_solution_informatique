@@ -106,6 +106,7 @@ L'application respecte une architecture découplée avec un backend développé 
 3. Accédez à l'application :
    - Frontend : `http://localhost` (Port 80)
    - Backend API : `http://localhost:8080/api`
+   - Spécification OpenAPI : `http://localhost:8080/openapi.yaml` (ou dans le dépôt : `backend/src/main/resources/static/openapi.yaml`)
    - Base de données PostgreSQL : `localhost:5432`
 
 ### 🎮 Démo Interactive en Ligne (GitHub Codespaces)
