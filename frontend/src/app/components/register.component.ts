@@ -17,40 +17,56 @@ import { AuthService } from '../auth.service';
         <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
           <div class="name-row">
             <div class="form-group flex-1">
-              <label class="form-label">Prénom</label>
-              <input type="text" formControlName="firstName" class="form-control" placeholder="Jean"/>
+              <label for="firstName" class="form-label">Prénom</label>
+              <input id="firstName" type="text" formControlName="firstName" class="form-control" placeholder="Jean" aria-label="Prénom"/>
             </div>
             <div class="form-group flex-1">
-              <label class="form-label">Nom</label>
-              <input type="text" formControlName="lastName" class="form-control" placeholder="Dupont"/>
+              <label for="lastName" class="form-label">Nom</label>
+              <input id="lastName" type="text" formControlName="lastName" class="form-control" placeholder="Dupont" aria-label="Nom"/>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Email</label>
+            <label for="email" class="form-label">Email</label>
             <input 
+              id="email"
               type="email" 
               formControlName="email" 
               class="form-control" 
               placeholder="jean.dupont@domain.com"
               [class.invalid]="isFieldInvalid('email')"
+              [attr.aria-invalid]="isFieldInvalid('email')"
+              aria-describedby="email-error"
             />
-            <span class="error-msg" *ngIf="isFieldInvalid('email')">
+            <span id="email-error" class="error-msg" *ngIf="isFieldInvalid('email')" role="alert">
               Veuillez saisir un email valide.
             </span>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Mot de passe</label>
+            <label for="password" class="form-label">Mot de passe</label>
             <input 
+              id="password"
               type="password" 
               formControlName="password" 
               class="form-control" 
               placeholder="Min. 8 caractères"
               [class.invalid]="isFieldInvalid('password')"
+              [attr.aria-invalid]="isFieldInvalid('password')"
+              aria-describedby="password-error"
             />
-            <span class="error-msg" *ngIf="isFieldInvalid('password')">
+            <span id="password-error" class="error-msg" *ngIf="isFieldInvalid('password')" role="alert">
               Le mot de passe doit comporter au moins 8 caractères.
+            </span>
+          </div>
+
+          <div class="form-group privacy-group">
+            <label class="checkbox-label" for="privacyConsent">
+              <input type="checkbox" id="privacyConsent" formControlName="privacyConsent" />
+              <span>J'accepte la <a routerLink="/privacy" class="auth-link">politique de confidentialité</a> et le traitement de mes données personnelles.</span>
+            </label>
+            <span class="error-msg" *ngIf="isFieldInvalid('privacyConsent')" role="alert">
+              Vous devez accepter la politique de confidentialité pour vous inscrire.
             </span>
           </div>
 
@@ -163,6 +179,24 @@ import { AuthService } from '../auth.service';
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    .privacy-group {
+      margin-top: 10px;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .checkbox-label input[type="checkbox"] {
+      margin-top: 4px;
+      accent-color: var(--primary);
+    }
+    .checkbox-label span {
+      line-height: 1.4;
+    }
   `]
 })
 export class RegisterComponent {
@@ -174,7 +208,8 @@ export class RegisterComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
     firstName: [''],
-    lastName: ['']
+    lastName: [''],
+    privacyConsent: [false, Validators.requiredTrue]
   });
 
   loading = false;

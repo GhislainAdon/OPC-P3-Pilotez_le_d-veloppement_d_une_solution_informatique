@@ -16,29 +16,35 @@ import { AuthService } from '../auth.service';
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
           <div class="form-group">
-            <label class="form-label">Email</label>
+            <label for="email" class="form-label">Email</label>
             <input 
+              id="email"
               type="email" 
               formControlName="email" 
               class="form-control" 
               placeholder="votre.email@domain.com"
               [class.invalid]="isFieldInvalid('email')"
+              [attr.aria-invalid]="isFieldInvalid('email')"
+              aria-describedby="email-error"
             />
-            <span class="error-msg" *ngIf="isFieldInvalid('email')">
+            <span id="email-error" class="error-msg" *ngIf="isFieldInvalid('email')" role="alert">
               Veuillez saisir un email valide.
             </span>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Mot de passe</label>
+            <label for="password" class="form-label">Mot de passe</label>
             <input 
+              id="password"
               type="password" 
               formControlName="password" 
               class="form-control" 
               placeholder="••••••••"
               [class.invalid]="isFieldInvalid('password')"
+              [attr.aria-invalid]="isFieldInvalid('password')"
+              aria-describedby="password-error"
             />
-            <span class="error-msg" *ngIf="isFieldInvalid('password')">
+            <span id="password-error" class="error-msg" *ngIf="isFieldInvalid('password')" role="alert">
               Le mot de passe est requis.
             </span>
           </div>

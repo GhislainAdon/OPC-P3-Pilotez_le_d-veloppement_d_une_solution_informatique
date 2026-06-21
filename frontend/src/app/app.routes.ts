@@ -24,6 +24,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/download.component').then(m => m.DownloadComponent)
   },
   {
+    path: 'privacy',
+    loadComponent: () => import('./components/privacy.component').then(m => m.PrivacyComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

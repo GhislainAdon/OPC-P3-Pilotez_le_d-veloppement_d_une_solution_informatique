@@ -83,9 +83,11 @@ import { AuthService } from '../auth.service';
                 class="form-control" 
                 placeholder="Saisissez le mot de passe..."
                 [class.invalid]="passwordForm.invalid && passwordForm.touched"
+                [attr.aria-invalid]="passwordForm.invalid && passwordForm.touched"
+                aria-describedby="password-error"
               />
             </div>
-            <div class="error-text" *ngIf="passwordError()">
+            <div id="password-error" class="error-text" *ngIf="passwordError()" role="alert">
               {{ passwordError() }}
             </div>
             
