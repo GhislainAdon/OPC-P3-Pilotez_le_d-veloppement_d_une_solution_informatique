@@ -49,8 +49,23 @@ public class FileMetadataService {
 
         String uuid = UUID.randomUUID().toString();
 
-        // Store file physically
-        String storagePath = fileStorageService.storeFile(file, uuid);
+        // Password protection configuration — validé AVANT le stockage physique
+        // (fail-fast : on évite d'écrire un fichier sur disque si la requête est invalide).
+        String passwordHash = null;
+        if (password != null && !password.isBlank()) {
+            if (password.length() < 6) {
+                throw new AppException("Password must be at least 6 characters long", HttpStatus.BAD_REQUEST);
+            }
+            passwordHash = passwordEncoder.encode(password);
+        }
+
+        // Store file physically — la validation backend (extension + type MIME réel
+        // par Tika) est désormais appliquée dans FileStorageService.storeFile.
+        // Le type MIME renvoyé est celui détecté par analyse du contenu, et non plus
+        // l'en-tête Content-Type fourni par le client (falsifiable).
+        FileStorageService.StoredFile storedFile = fileStorageService.storeFile(file, uuid);
+        String storagePath = storedFile.storagePath();
+        String detectedMimeType = storedFile.detectedMimeType();
 
         // Fetch User context if logged in
         User user = null;
@@ -74,20 +89,11 @@ public class FileMetadataService {
             }
         }
 
-        // Password protection configuration
-        String passwordHash = null;
-        if (password != null && !password.isBlank()) {
-            if (password.length() < 6) {
-                throw new AppException("Password must be at least 6 characters long", HttpStatus.BAD_REQUEST);
-            }
-            passwordHash = passwordEncoder.encode(password);
-        }
-
         // Build File Metadata
         FileMetadata metadata = FileMetadata.builder()
                 .uuid(uuid)
                 .originalName(file.getOriginalFilename())
-                .fileType(file.getContentType())
+                .fileType(detectedMimeType)
                 .fileSize(file.getSize())
                 .storagePath(storagePath)
                 .passwordHash(passwordHash)

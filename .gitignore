@@ -26,3 +26,10 @@ backend/target/
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
+frontend/coverage/
+
+# Maven wrapper artefacts (téléchargés à l'usage)
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# IDE specific
+*.iml

@@ -2,6 +2,7 @@ package com.datashare.backend.service;
 
 import com.datashare.backend.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.Resource;
@@ -21,10 +22,12 @@ class FileStorageServiceTest {
     Path tempDir;
 
     private FileStorageService fileStorageService;
+    private FileValidationService fileValidationService;
 
     @BeforeEach
     void setUp() {
-        fileStorageService = new FileStorageService(tempDir.toString());
+        fileValidationService = new FileValidationService();
+        fileStorageService = new FileStorageService(tempDir.toString(), fileValidationService);
         fileStorageService.init();
     }
 
@@ -34,6 +37,7 @@ class FileStorageServiceTest {
     }
 
     @Test
+    @DisplayName("storeFile : stocke un fichier valide et renvoie chemin + MIME détecté")
     void storeFile_Success() throws IOException {
         String uuid = UUID.randomUUID().toString();
         MockMultipartFile mockFile = new MockMultipartFile(
@@ -43,18 +47,51 @@ class FileStorageServiceTest {
                 "Hello World".getBytes()
         );
 
-        String storedPath = fileStorageService.storeFile(mockFile, uuid);
+        FileStorageService.StoredFile stored = fileStorageService.storeFile(mockFile, uuid);
 
-        assertNotNull(storedPath);
-        Path targetPath = Path.of(storedPath);
+        assertNotNull(stored);
+        assertNotNull(stored.storagePath());
+        assertNotNull(stored.detectedMimeType());
+
+        Path targetPath = Path.of(stored.storagePath());
         assertTrue(Files.exists(targetPath));
         assertEquals("Hello World", Files.readString(targetPath));
         assertTrue(targetPath.getFileName().toString().startsWith(uuid));
+        // Le type MIME détecté par Tika pour un .txt doit commencer par text/
+        assertTrue(stored.detectedMimeType().startsWith("text/"),
+                "Type MIME détecté attendu : text/*, était : " + stored.detectedMimeType());
     }
 
     @Test
+    @DisplayName("storeFile : rejet d'un .exe par la validation (avant écriture sur disque)")
+    void storeFile_ExeRejected_ByValidation() {
+        String uuid = UUID.randomUUID().toString();
+        MockMultipartFile mockFile = new MockMultipartFile(
+                "file",
+                "malware.exe",
+                "application/x-msdownload",
+                "MZ fake exe".getBytes()
+        );
+
+        AppException exception = assertThrows(AppException.class, () ->
+                fileStorageService.storeFile(mockFile, uuid)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        // Vérifier que RIEN n'a été écrit sur disque
+        try (var files = Files.list(tempDir)) {
+            assertEquals(0, files.count(), "Aucun fichier ne doit être écrit sur disque après rejet");
+        } catch (IOException e) {
+            fail(e);
+        }
+    }
+
+    @Test
+    @DisplayName("storeFile : rejet d'un path traversal (..) avec 400")
     void storeFile_ThrowsException_OnInvalidPath() {
         String uuid = UUID.randomUUID().toString();
+        // .txt est en liste blanche donc la validation d'extension passe,
+        // mais le check de path traversal dans FileStorageService doit encore s'appliquer.
         MockMultipartFile mockFile = new MockMultipartFile(
                 "file",
                 "../test-file.txt",
@@ -62,7 +99,7 @@ class FileStorageServiceTest {
                 "Hello World".getBytes()
         );
 
-        AppException exception = assertThrows(AppException.class, () -> 
+        AppException exception = assertThrows(AppException.class, () ->
                 fileStorageService.storeFile(mockFile, uuid)
         );
 
@@ -84,10 +121,23 @@ class FileStorageServiceTest {
     }
 
     @Test
+    @DisplayName("loadFileAsResource : rejet d'un path traversal hors du répertoire de stockage")
+    void loadFileAsResource_RejectsPathTraversal() throws IOException {
+        // Tente d'accéder à /etc/passwd via un chemin absolu hors du répertoire de stockage
+        Path outside = Path.of("/etc/passwd");
+
+        AppException exception = assertThrows(AppException.class, () ->
+                fileStorageService.loadFileAsResource(outside.toString())
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+    }
+
+    @Test
     void loadFileAsResource_ThrowsException_WhenFileNotFound() {
         Path nonExistent = tempDir.resolve("missing.txt");
 
-        AppException exception = assertThrows(AppException.class, () -> 
+        AppException exception = assertThrows(AppException.class, () ->
                 fileStorageService.loadFileAsResource(nonExistent.toString())
         );
 
@@ -103,5 +153,19 @@ class FileStorageServiceTest {
         fileStorageService.deletePhysicalFile(dummyFile.toString());
 
         assertFalse(Files.exists(dummyFile));
+    }
+
+    @Test
+    @DisplayName("deletePhysicalFile : ne supprime rien hors du répertoire de stockage (path traversal)")
+    void deletePhysicalFile_RejectsPathTraversal() throws IOException {
+        Path outside = Path.of("/tmp/should-not-be-deleted-" + UUID.randomUUID() + ".txt");
+        Files.writeString(outside, "important");
+        try {
+            fileStorageService.deletePhysicalFile(outside.toString());
+            // Le fichier ne doit pas avoir été supprimé
+            assertTrue(Files.exists(outside), "Le fichier hors répertoire de stockage ne doit pas être supprimé");
+        } finally {
+            Files.deleteIfExists(outside);
+        }
     }
 }

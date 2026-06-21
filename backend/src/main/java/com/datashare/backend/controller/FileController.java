@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +40,10 @@ public class FileController {
         }
 
         FileResponse response = fileMetadataService.uploadFile(file, expiryDays, password, tags, email);
-        return ResponseEntity.ok(response);
+        // 201 Created : la ressource FileMetadata a été créée côté serveur.
+        // Auparavant le code renvoyait 200 OK, en contradiction avec README.md
+        // et TESTING.md qui décrivaient un 201. Le comportement est aligné.
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/download/{uuid}/details")
