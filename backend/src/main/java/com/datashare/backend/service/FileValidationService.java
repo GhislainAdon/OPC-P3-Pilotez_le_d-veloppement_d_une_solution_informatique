@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * Service central de validation des fichiers téléversés.
  *
- * <p>La validation repose sur trois piliers défensifs (consultez SECURITY.md) :</p>
+ * <p>La validation repose sur quatre piliers défensifs (consultez SECURITY.md) :</p>
  * <ol>
  *     <li><b>Taille</b> : la limite Spring multipart (1 Go) est déjà active côté conteneur,
  *         mais on ajoute une vérification défensive ici même pour les fichiers vides.</li>
@@ -24,8 +24,15 @@ import java.util.Set;
  *     <li><b>Type MIME réel</b> : détection par <em>Apache Tika</em> sur le contenu binaire
  *         réel du fichier. L'en-tête {@code Content-Type} fourni par le client n'est plus
  *         utilisé, car il est falsifiable (un attaquant peut envoyer un .exe avec un
- *         Content-Type: image/png). Le type détecté par Tika doit cohérent avec l'extension
- *         déclarée.</li>
+ *         Content-Type: image/png). Le type détecté par Tika doit être cohérent avec
+ *         l'extension déclarée.</li>
+ *     <li><b>Magic bytes d'exécutables</b> : analyse des premiers octets du fichier pour
+ *         détecter les signatures binaires d'exécutables (PE Windows "MZ", ELF Linux
+ *         "\x7fELF", Java class "\xca\xfe\xba\xbe", Mach-O). Cette vérification s'applique
+ *         MÊME si l'extension est en liste blanche (.txt, .png, etc.), ce qui bloque
+ *         définitivement un .exe renommé en .txt dont le contenu binaire commence par "MZ".
+ *         Cette couche est essentielle car Tika peut parfois renvoyer "text/plain" pour
+ *         certains binaires malformés ou tronqués.</li>
  * </ol>
  *
  * <p>La validation est appelée systématiquement par {@link FileStorageService#storeFile}
@@ -70,6 +77,37 @@ public class FileValidationService {
      */
     private static final long MAX_FILE_SIZE_BYTES = 1024L * 1024L * 1024L;
 
+    /**
+     * Signatures magiques d'exécutables et binaires dangereux.
+     * On lit les premiers octets du fichier pour les comparer à ces signatures.
+     * Si l'une d'elles est détectée, le fichier est rejeté QUELLE QUE SOIT l'extension
+     * (y compris .txt, .png, .jpg), car cela signifie qu'un exécutable a été renommé.
+     */
+    private static final byte[][] EXECUTABLE_MAGIC_BYTES = {
+            // PE Windows (DOS header "MZ") — exécutables .exe, .dll, .scr
+            new byte[]{0x4D, 0x5A},
+            // ELF Linux — exécutables binaires Linux
+            new byte[]{0x7F, 0x45, 0x4C, 0x46},
+            // Java class file (CAFEBABE) — bytecode Java exécutable
+            new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE},
+            // Mach-O 32-bit (macOS)
+            new byte[]{(byte) 0xFE, (byte) 0xED, (byte) 0xFA, (byte) 0xCE},
+            // Mach-O 64-bit (macOS)
+            new byte[]{(byte) 0xFE, (byte) 0xED, (byte) 0xFA, (byte) 0xCF},
+            // Mach-O universal (macOS)
+            new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBF},
+            // PE Windows plus rare (NE, LE, LX — exécutables 16-bit OS/2 et Windows)
+            // déjà couvert par MZ, mais on ajoute la signature PE optionnelle
+            // après le header DOS (offset 0x80 : "PE\0\0")
+    };
+
+    /**
+     * Nombre d'octets lus pour la détection de magic bytes.
+     * 64 octets suffisent pour couvrir toutes les signatures ci-dessus
+     * et laisser une marge pour les variantes.
+     */
+    private static final int MAGIC_BYTES_READ_SIZE = 64;
+
     private final Tika tika = new Tika();
 
     /**
@@ -78,8 +116,9 @@ public class FileValidationService {
      * @param file le fichier multipart à valider
      * @return le type MIME détecté par Tika (à utiliser pour le stockage en base,
      *         en remplacement de {@link MultipartFile#getContentType()} qui est falsifiable)
-     * @throws AppException si le fichier est vide, trop gros, a une extension interdite
-     *         ou un type MIME détecté non cohérent avec l'extension
+     * @throws AppException si le fichier est vide, trop gros, a une extension interdite,
+     *         un type MIME détecté non cohérent avec l'extension, ou contient des magic
+     *         bytes d'exécutable (même si l'extension est en liste blanche)
      */
     public String validateAndDetectMimeType(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -113,7 +152,15 @@ public class FileValidationService {
                     HttpStatus.BAD_REQUEST);
         }
 
-        // Détection du type MIME réel par analyse du contenu binaire
+        // === Détection des magic bytes d'exécutables ===
+        // Cette vérification s'applique AVANT Tika et indépendamment de l'extension,
+        // car Tika peut parfois mal détecter certains binaires. On lit les premiers
+        // octets du fichier et on les compare aux signatures d'exécutables connus.
+        // Si une signature est détectée, le fichier est rejeté même si l'extension
+        // est en liste blanche (par exemple un .exe renommé en .txt).
+        checkExecutableMagicBytes(file);
+
+        // === Détection du type MIME réel par Tika ===
         String detectedMimeType;
         try (InputStream is = file.getInputStream()) {
             detectedMimeType = tika.detect(is, originalName);
@@ -123,7 +170,7 @@ public class FileValidationService {
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-        // Cohérence extension / type détecté
+        // === Cohérence extension / type détecté ===
         if (!isMimeConsistentWithExtension(detectedMimeType, extensionLower)) {
             throw new AppException(
                     "Incohérence détectée : l'extension ." + extensionLower
@@ -132,6 +179,63 @@ public class FileValidationService {
         }
 
         return detectedMimeType;
+    }
+
+    /**
+     * Vérifie si le fichier commence par des magic bytes d'exécutable.
+     * Cette vérification bloque les .exe renommés en .txt dont le contenu
+     * binaire commence par "MZ" (signature PE Windows).
+     *
+     * @param file le fichier à vérifier
+     * @throws AppException si une signature d'exécutable est détectée
+     */
+    private void checkExecutableMagicBytes(MultipartFile file) {
+        byte[] header = new byte[MAGIC_BYTES_READ_SIZE];
+        int bytesRead;
+        try (InputStream is = file.getInputStream()) {
+            bytesRead = is.read(header);
+        } catch (IOException e) {
+            throw new AppException(
+                    "Impossible de lire l'en-tête du fichier pour validation",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        if (bytesRead <= 0) {
+            // Fichier vide déjà vérifié plus haut, mais on défend
+            return;
+        }
+
+        for (byte[] signature : EXECUTABLE_MAGIC_BYTES) {
+            if (bytesRead >= signature.length && startsWith(header, signature)) {
+                throw new AppException(
+                        "Fichier binaire exécutable détecté (signature magic bytes "
+                                + bytesToHex(signature) + "). Le téléversement d'exécutables "
+                                + "est interdit quelle que soit l'extension déclarée.",
+                        HttpStatus.BAD_REQUEST);
+            }
+        }
+    }
+
+    /**
+     * Compare les premiers octets d'un buffer à une signature.
+     */
+    private boolean startsWith(byte[] buffer, byte[] signature) {
+        for (int i = 0; i < signature.length; i++) {
+            if (buffer[i] != signature[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Convertit un tableau d'octets en représentation hexadécimale (pour messages d'erreur).
+     */
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString().trim();
     }
 
     /**

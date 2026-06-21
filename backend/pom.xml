@@ -30,6 +30,7 @@
                 <java.version>21</java.version>
                 <tika.version>2.9.2</tika.version>
                 <jacoco.version>0.8.12</jacoco.version>
+                <testcontainers.version>1.20.4</testcontainers.version>
         </properties>
         <dependencies>
                 <dependency>
@@ -106,6 +107,34 @@
                 <dependency>
                         <groupId>org.springframework.boot</groupId>
                         <artifactId>spring-boot-starter-webmvc-test</artifactId>
+                        <scope>test</scope>
+                </dependency>
+                <!-- Testcontainers PostgreSQL : tests d'intégration réels sur PostgreSQL 16.
+                     Ces tests démarrent un conteneur Docker PostgreSQL éphémère et valident
+                     que le code fonctionne sur le vrai moteur de base de données de production
+                     (et non H2 qui a des différences de dialecte).
+                     Pré-requis : Docker doit être disponible sur la machine d'exécution. -->
+                <dependency>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>testcontainers</artifactId>
+                        <version>${testcontainers.version}</version>
+                        <scope>test</scope>
+                </dependency>
+                <dependency>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>${testcontainers.version}</version>
+                        <scope>test</scope>
+                </dependency>
+                <dependency>
+                        <groupId>org.testcontainers</groupId>
+                        <artifactId>junit-jupiter</artifactId>
+                        <version>${testcontainers.version}</version>
+                        <scope>test</scope>
+                </dependency>
+                <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-testcontainers</artifactId>
                         <scope>test</scope>
                 </dependency>
         </dependencies>

@@ -69,11 +69,26 @@ public class SecurityConfiguration {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Liste stricte d'origines autorisées (séparées par virgule dans la propriété).
-        List<String> origins = Arrays.stream(allowedOriginsRaw.split(","))
+        // On sépare les origines exactes (setAllowedOrigins) des patterns avec wildcard
+        // (setAllowedOriginPatterns) car Spring refuse les wildcards dans setAllowedOrigins.
+        List<String> exactOrigins = new java.util.ArrayList<>();
+        List<String> patternOrigins = new java.util.ArrayList<>();
+        for (String o : Arrays.stream(allowedOriginsRaw.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
-                .toList();
-        configuration.setAllowedOrigins(origins);
+                .toList()) {
+            if (o.contains("*")) {
+                patternOrigins.add(o);
+            } else {
+                exactOrigins.add(o);
+            }
+        }
+        configuration.setAllowedOrigins(exactOrigins);
+        if (!patternOrigins.isEmpty()) {
+            // allowedOriginPatterns accepte les wildcards comme https://*.app.github.dev
+            // (utile pour GitHub Codespaces où le nom du codespace est dynamique)
+            configuration.setAllowedOriginPatterns(patternOrigins);
+        }
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control", "Accept", "X-Requested-With"));

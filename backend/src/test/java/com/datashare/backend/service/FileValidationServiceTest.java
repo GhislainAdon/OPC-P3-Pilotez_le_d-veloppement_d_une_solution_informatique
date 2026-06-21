@@ -174,26 +174,56 @@ class FileValidationServiceTest {
     // ---------- Cas d'erreur : falsification Content-Type ----------
 
     @Test
-    @DisplayName("Fichier .exe renommé en .png : rejeté (détection Tika par contenu)")
+    @DisplayName("Fichier .exe renommé en .png : rejeté (détection magic bytes MZ + Tika)")
     void validateExeRenamedAsPng_rejectedByContentDetection() {
         // Tika détectera application/x-msdownload ou x-dosexec sur un vrai binaire Windows.
-        // Ici on simule avec un contenu binaire qui commence par MZ (signature PE Windows).
+        // En complément, la détection magic bytes analyse les premiers octets (MZ = 4D 5A).
+        // Le fichier est rejeté par la PREMIÈRE vérification qui détecte (magic bytes
+        // ou incohérence Tika), peu importe laquelle — l'important est le rejet 400.
         byte[] fakeExeBytes = new byte[]{
                 0x4D, 0x5A, (byte) 0x90, 0x00, 0x03, 0x00, 0x00, 0x00,
                 0x04, 0x00, 0x00, 0x00, (byte) 0xFF, (byte) 0xFF, 0x00, 0x00
         };
         // Le client tente de masquer le .exe en envoyant un Content-Type image/png
-        // et un nom de fichier .png — Tika doit détecter la supercherie.
+        // et un nom de fichier .png — la validation doit détecter la supercherie.
         MockMultipartFile file = new MockMultipartFile(
                 "file", "innocent-image.png", "image/png", fakeExeBytes);
 
         AppException ex = assertThrows(AppException.class,
                 () -> service.validateAndDetectMimeType(file));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
-        // Le message doit mentionner l'incohérence
-        assertTrue(ex.getMessage().toLowerCase().contains("incohérence")
-                || ex.getMessage().toLowerCase().contains("incoherence"),
-                "Le message doit mentionner l'incohérence détectée : " + ex.getMessage());
+        // Le message doit mentionner soit l'exécutable détecté (magic bytes),
+        // soit l'incohérence extension/MIME (Tika) — les deux mécanismes sont valides.
+        String msg = ex.getMessage().toLowerCase();
+        assertTrue(msg.contains("exécutable")
+                        || msg.contains("executable")
+                        || msg.contains("magic bytes")
+                        || msg.contains("incohérence")
+                        || msg.contains("incoherence"),
+                "Le message doit mentionner l'exécutable détecté ou l'incohérence : " + ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Fichier .exe renommé en .txt (scénario soutenance) : rejeté par magic bytes MZ")
+    void validateExeRenamedAsTxt_rejectedByMagicBytes() {
+        // Ce test reproduit EXACTEMENT le scénario de la soutenance :
+        // un fichier .exe renommé en .txt est téléversé.
+        // AVANT : le fichier passait (faille OWASP).
+        // APRÈS : la détection magic bytes MZ bloque le fichier même avec extension .txt.
+        byte[] fakeExeBytes = new byte[]{
+                0x4D, 0x5A, (byte) 0x90, 0x00, 0x03, 0x00, 0x00, 0x00,
+                0x04, 0x00, 0x00, 0x00, (byte) 0xFF, (byte) 0xFF, 0x00, 0x00
+        };
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "QuicSFV.txt", "text/plain", fakeExeBytes);
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.validateAndDetectMimeType(file));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        // Le message doit mentionner la signature magic bytes MZ (4D 5A)
+        String msg = ex.getMessage().toLowerCase();
+        assertTrue(msg.contains("exécutable") || msg.contains("executable"),
+                "Le message doit mentionner la détection d'exécutable : " + ex.getMessage());
     }
 
     @Test

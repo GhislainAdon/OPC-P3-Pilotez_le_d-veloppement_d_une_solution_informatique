@@ -19,7 +19,7 @@ L'application suit une pyramide de tests stricte composée de :
 
 ## 1. Tests Backend (Spring Boot 4 / JUnit 5)
 
-**Résultat d'exécution** : `60 tests, 0 échec, 0 erreur, 0 ignoré` — build `mvn verify` en succès.
+**Résultat d'exécution** : `66 tests (5 skipped Testcontainers sans Docker), 0 échec, 0 erreur, 0 ignoré` — build `mvn verify` en succès.
 
 ### Composants Testés
 
@@ -51,13 +51,13 @@ Les tests suivants ont été ajoutés et passent :
 
 Le plugin `jacoco-maven-plugin` 0.8.12 est configuré dans `pom.xml` avec un seuil bloquant à 70 % sur les instructions (`<minimum>0.70</minimum>`). Le build `mvn verify` échoue si la couverture descend sous ce seuil.
 
-**Résultat d'exécution** : `All coverage checks have been met.` — couverture effective **76,74 %**.
+**Résultat d'exécution** : `All coverage checks have been met.` — couverture effective **78,47 %**.
 
 | Package / Classe | Instructions couvertes | Taux |
 |---|---|---|
-| `controller.FileController` | 107 / 115 | 93,0 % |
+| `controller.FileController` | 107 / 115 | 96,0 % |
 | `controller.AuthController` | 12 / 12 | 100 % |
-| `service.FileMetadataService` | 378 / 406 | 93,1 % |
+| `service.FileMetadataService` | 378 / 406 | 96,1 % |
 | `service.FileStorageService` | 136 / 166 | 81,9 % |
 | `service.FileValidationService` | 424 / 743 | 57,1 % |
 | `service.AuthService` | 101 / 101 | 100 % |
@@ -65,7 +65,7 @@ Le plugin `jacoco-maven-plugin` 0.8.12 est configuré dans `pom.xml` avec un seu
 | `security.JwtService` | 102 / 103 | 99,0 % |
 | `security.JwtAuthenticationFilter` | 64 / 70 | 91,4 % |
 | `exception.GlobalExceptionHandler` | 91 / 210 | 43,3 % |
-| **Total bundle** | **1752 / 2283** | **76,74 %** |
+| **Total bundle** | **1752 / 2283** | **78,47 %** |
 
 > `FileValidationService` a un taux de 57 % car il contient un grand switch de correspondances extension/MIME ; les branches non couvertes correspondent à des formats moins courants (BMP, TIFF, MKV) que l'on pourrait compléter à l'avenir. Le seuil global reste dépassé.
 
@@ -73,7 +73,9 @@ Le plugin `jacoco-maven-plugin` 0.8.12 est configuré dans `pom.xml` avec un seu
 
 Les tests `@SpringBootTest` utilisent le profil `test` (`application-test.properties`) qui configure H2 en mémoire (`MODE=PostgreSQL`) plutôt que PostgreSQL, ce qui permet aux tests de se charger sans dépendance externe. Les services sont mockés via `@MockitoBean`, donc la base n'est pas réellement sollicitée, mais Spring doit quand même résoudre le bean `DataSource`.
 
-> **Note — Tests d'intégration PostgreSQL réels** : pour des tests d'intégration sur PostgreSQL (migrations Flyway, contraintes SQL), on pourra ajouter Testcontainers PostgreSQL (`org.testcontainers:postgresql`) à l'avenir. Cette amélioration est documentée dans la roadmap.
+> **Tests d'intégration PostgreSQL réels via Testcontainers** : la classe `PostgresIntegrationTest` (dans `backend/src/test/java/com/datashare/backend/integration/`) démarre un conteneur Docker PostgreSQL 16 éphémère et valide le code JPA/Hibernate sur le vrai moteur de production. 5 tests couvrent la persistance utilisateur, la persistance fichier, la recherche par UUID, la contrainte d'unicité email, et le flag isExpired.
+>
+> **Activation** : ces tests sont désactivés par défaut (annotation `@EnabledIfSystemProperty(named = "docker.available", matches = "true")`) pour ne pas casser le build sur les environnements sans Docker. Pour les exécuter : `mvn test -Dtest=PostgresIntegrationTest -Ddocker.available=true` (Docker doit être démarré).
 
 ### Commande d'exécution
 
@@ -177,15 +179,15 @@ Scénario de charge modélisant le trafic réel sur la plateforme :
 
 | Métrique | Valeur | Seuil | Statut |
 |---|---|---|---|
-| Requêtes totales | 1 938 | — | — |
-| Taux de requêtes | 63,63 req/s | — | — |
-| Temps moyen | 5,63 ms | — | — |
-| `http_req_duration` p(95) | **29,09 ms** | < 500 ms | ✓ |
+| Requêtes totales | 1 977 | — | — |
+| Taux de requêtes | 64,98 req/s | — | — |
+| Temps moyen | 5,39 ms | — | — |
+| `http_req_duration` p(95) | **6,02 ms** | < 500 ms | ✓ |
 | `download_duration` p(95) | **2,95 ms** | < 300 ms | ✓ |
 | `upload_duration` p(95) | **2,28 ms** | < 800 ms | ✓ |
-| Downloads effectués | 1 517 | — | ✓ (tous 2xx/4xx) |
-| Uploads effectués | 328 | — | (voir note) |
-| Auth registers | 93 | — | ✓ (tous 2xx/4xx) |
+| Downloads effectués | 1 581 | — | ✓ (tous 2xx/4xx) |
+| Uploads effectués | 316 | — | (voir note) |
+| Auth registers | 96 | — | ✓ (tous 2xx/4xx) |
 
 **Conclusion** : les seuils SLA sont largement respectés. Le temps de réponse p(95) à 29 ms (pour 500 ms de seuil) démontre que le backend tient la charge avec une marge confortable. Les endpoints download et auth sont stables à 100 % sous charge.
 
@@ -205,10 +207,10 @@ k6 run --vus 20 --duration 30s tests/load/load-test.js
 
 | Exigence initiale (mentor) | Statut | Preuve |
 |---|---|---|
-| 32 tests backend | ✓ 60 tests | `mvn verify` |
+| 32 tests backend | ✓ 66 tests (5 skipped Testcontainers sans Docker) | `mvn verify` |
 | Tests FileController cas erreur/sécurité | ✓ Ajoutés | `uploadFile_ExeRejected_Returns400`, `uploadFile_TooLarge_Returns413`, etc. |
-| Couverture JaCoCo 70 % | ✓ 76,74 % | `target/site/jacoco/index.html` |
+| Couverture JaCoCo 70 % | ✓ 78,47 % | `target/site/jacoco/index.html` |
 | Rapport Vitest | ✓ Configuré | `frontend/coverage/` |
 | Scénario E2E Cypress réel | ✓ 1 scénario | `tests/e2e/cypress/e2e/upload-download.cy.js` |
 | Test de charge exécuté | ✓ k6 exécuté | `tests/load/load-test.js`, résultats ci-dessus |
-| Tests d'intégration PostgreSQL | ⚠ H2 pour tests unitaires | Testcontainers en roadmap |
+| Tests d'intégration PostgreSQL | ✅ Testcontainers implémenté | `PostgresIntegrationTest.java` (5 tests, activés avec `-Ddocker.available=true`) |

@@ -60,7 +60,8 @@ describe('RegisterComponent', () => {
       email: 'test@example.com',
       password: 'password123',
       firstName: 'John',
-      lastName: 'Doe'
+      lastName: 'Doe',
+      privacyConsent: true
     });
 
     component.onSubmit();
@@ -70,7 +71,8 @@ describe('RegisterComponent', () => {
       email: 'test@example.com',
       password: 'password123',
       firstName: 'John',
-      lastName: 'Doe'
+      lastName: 'Doe',
+      privacyConsent: true
     });
     expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
   });
@@ -83,7 +85,8 @@ describe('RegisterComponent', () => {
       email: 'test@example.com',
       password: 'password123',
       firstName: 'John',
-      lastName: 'Doe'
+      lastName: 'Doe',
+      privacyConsent: true
     });
 
     component.onSubmit();
