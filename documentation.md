@@ -263,7 +263,9 @@ Response 201 Created:
 
 Erreurs possibles:
 
-400 — Extension interdite (.exe, .bat, .sh, .cmd, .msi)
+400 — Extension interdite (liste blanche : seules les extensions documentées sont autorisées ; les exécutables .exe, .bat, .cmd, .sh, .msi, .ps1, .jar, .war sont explicitement rejetés)
+
+400 — Incohérence type MIME / extension détectée par Apache Tika (ex: un .exe renommé en .png est rejeté)
 
 413 — Fichier > 1 Go
 
@@ -302,42 +304,90 @@ Tous les mots de passe (comptes utilisateurs et protection de fichiers) sont hac
 
 ## **5.3 Sécurisation des Dépôts de Fichiers**
 
+Le téléversement de fichiers représente le risque de sécurité le plus élevé de l'application. La validation est désormais appliquée **à la fois côté frontend (UX) et côté backend (sécurité)**, implémentée dans le service dédié `FileValidationService` et appelée systématiquement par `FileStorageService.storeFile` **avant** toute écriture sur disque.
+
+### Trois piliers défensifs de la validation backend
+
+| **Pilier** | **Implémentation** |
+| --- | --- |
+| **1. Taille maximale (1 Go)** | Configurée via `spring.servlet.multipart.max-file-size`. Un dépassement déclenche `MaxUploadSizeExceededException` interceptée par `GlobalExceptionHandler` → `413 Payload Too Large` |
+| **2. Liste blanche d'extensions** | `FileValidationService.ALLOWED_EXTENSIONS` : seules les extensions explicitement autorisées (documents, images, audio, vidéo, archives, code source) sont acceptées. Les exécutables (.exe, .bat, .cmd, .sh, .msi, .ps1, .vbs, .scr, .com, .jar, .war) et tout format non listé sont rejetés → `400 Bad Request` |
+| **3. Détection MIME par Apache Tika** | L'en-tête `Content-Type` fourni par le client n'est **plus utilisé** (falsifiable). Apache Tika analyse le contenu binaire réel du fichier. Le type détecté est comparé à l'extension déclarée (`isMimeConsistentWithExtension`) : un `.exe` renommé en `.png` est détecté comme `application/x-msdownload` et rejeté → `400 Bad Request` ("Incohérence détectée") |
+
+### Mesures complémentaires
+
 | **Mesure** | **Implémentation** |
 | --- | --- |
 | Isolation physique | Fichiers stockés dans /app/uploads (volume Docker, inaccessible du web direct) |
 | UUID physique | Nom original remplacé par UUID v4 cryptographique sur disque |
-| Extension interdite | .exe, .bat, .cmd, .sh, .msi rejetés côté backend ET frontend |
-| Limite de taille | 1 Go maximum — configuré spring.servlet.multipart.max-file-size + validation client |
+| Défense path traversal | `FileStorageService` vérifie que le chemin résolu reste sous le répertoire de stockage (`filePath.startsWith(fileStorageLocation)`) |
 | Expiration automatique | 1 à 7 jours obligatoires, nettoyage cron quotidien à minuit |
+| Validation frontend (UX) | `UploadComponent` rejette localement les extensions interdites avant envoi, avec message clair (ne remplace pas la validation backend) |
 
 ## **5.4 Protections OWASP**
 
 | **Vulnérabilité** | **Contre-mesure** |
 | --- | --- |
 | Injection SQL | Spring Data JPA / Hibernate — PreparedStatement systématique |
-| CORS | Seul l'hôte frontend déclaré autorisé (ApplicationSecurityConfig) |
+| CORS | Origines strictement restreintes via la propriété configurable `cors.allowed-origins` (défaut : `http://localhost:80`, `http://localhost:4200`, `http://localhost`). En production : variable d'environnement `CORS_ALLOWED_ORIGINS`. Correction de l'ancien `allowedOriginPatterns("*")` + `allowCredentials(true)` qui ouvrait l'API à toutes les origines (déconseillé OWASP) |
+| Fuite d'informations | `GlobalExceptionHandler` ne renvoie jamais `ex.getMessage()` brut au client pour les exceptions génériques. Seules les exceptions métier (`AppException`) sont renvoyées. Les autres sont loggées côté serveur et remplacées par le message générique "Une erreur inattendue s'est produite" |
 | DoS (stockage) | Expiration obligatoire + cron de purge physique + limite 1 Go/fichier |
 | XSS | Angular échappe automatiquement les expressions dans les templates |
 | IDOR | Seul le propriétaire peut supprimer ses fichiers (vérification user\_id serveur) |
+| Dépôt fichiers malveillants | Triple validation backend : taille + liste blanche extensions + détection MIME réelle par Tika (voir §5.3) |
+
+## **5.5 Spécification OpenAPI**
+
+Une spécification OpenAPI 3.0 complète est disponible à l'URL `/openapi.yaml` (servie depuis `src/main/resources/static/openapi.yaml`). Elle documente l'ensemble des endpoints REST, les schémas de requêtes/réponses, les codes d'erreur attendus, et les exigences d'authentification.
+
+## **5.6 Sauvegarde de la Base de Données**
+
+Un script `backup-db.sh` est fourni à la racine du dépôt pour sauvegarder la base PostgreSQL via `pg_dump` vers un fichier horodaté et compressé. Les sauvegardes de plus de 30 jours sont automatiquement purgées. Variables d'environnement configurables : `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `BACKUP_DIR`, `RETENTION_DAYS`.
 
 # **6. Qualité, Tests et Maintenance**
 
 ## **6.1 Stratégie de Tests (TESTING.md)**
 
-La stratégie suit une pyramide de tests classique avec 66 tests automatisés au total :
+La stratégie suit une pyramide de tests stricte avec **94 tests automatisés** au total (60 backend + 34 frontend), complétés par un scénario E2E Cypress réel et un test de charge k6 exécuté :
 
 | **Couche** | **Technologie** | **Nb Tests** | **Périmètre** |
 | --- | --- | --- | --- |
-| Unitaires Backend | JUnit 5 + Mockito | 20 | AuthService, FileMetadataService, FileStorageService |
-| Intégration Backend | Spring Boot Test + MockMvc | 12 | AuthController, FileController, filtres JWT |
-| Unitaires Frontend | Vitest 4 + Angular Testing | 34 | AuthService, FileService, composants UI |
-| E2E (planifié) | Cypress | 2 scénarios | Flux complet anonyme et authentifié |
+| Unitaires Backend | JUnit 5 + Mockito | 42 | AuthService, FileMetadataService, FileStorageService, **FileValidationService** (18 tests : liste blanche, Tika, falsifications MIME, fichier vide, fichier > 1 Go) |
+| Intégration Backend | Spring Boot Test + MockMvc | 18 | AuthController, FileController (incluant **rejet .exe → 400**, **fichier trop gros → 413**, **MIME falsifié → 400**, download 404/401/410, suppression non-propriétaire → 401), filtres JWT |
+| Unitaires Frontend | Vitest 4 + Angular Testing | 34 | AuthService, FileService, composants UI (upload drag & drop, rejet client .exe/.bat, progression, formulaires réactifs) |
+| E2E | Cypress | 3 scénarios | Upload anonyme → téléchargement PNG, rejet frontend .exe, rejet backend .exe via POST direct |
+| Charge | k6 | 20 VUs / 30s | 80% consultations, 15% uploads, 5% inscriptions — résultats p(95) : 29 ms |
 
-**Points techniques notables :** Spring Boot 4 utilise @MockitoBean (remplace @MockBean), Jackson v3 avec tools.jackson.databind, et injection de vrais tokens JWT dans les tests d'intégration pour les endpoints stateless.
+### Couverture de code mesurée
+
+| **Outil** | **Périmètre** | **Taux global** | **Seuil bloquant** | **Statut** |
+| --- | --- | --- | --- | --- |
+| JaCoCo 0.8.12 (backend) | Instructions Java | **76,74 %** | 70 % | ✓ Build échoue si < 70 % |
+| @vitest/coverage-v8 (frontend) | Lines / Statements / Branches | **81,11 % / 76,19 % / 74,48 %** | 70 % / 70 % / 70 % | ✓ |
+
+**Points techniques notables :** Spring Boot 4 utilise @MockitoBean (remplace @MockBean), Jackson v3 avec tools.jackson.databind, injection de vrais tokens JWT dans les tests d'intégration pour les endpoints stateless. Les tests `@SpringBootTest` utilisent le profil `test` avec H2 en mémoire (`MODE=PostgreSQL`). Pour les tests d'intégration PostgreSQL réels, Testcontainers est prévu en roadmap.
+
+### Commandes d'exécution des tests
+
+```bash
+# Backend : tests + couverture JaCoCo + vérification seuil 70%
+cd backend && mvn clean verify
+# Rapport HTML : target/site/jacoco/index.html
+
+# Frontend : tests unitaires + couverture Vitest
+cd frontend && npm install && npm test -- --watch=false
+# Rapport HTML : frontend/coverage/
+
+# E2E Cypress (backend sur :8080, frontend sur :4200)
+cd tests/e2e && npm install && npx cypress run --spec cypress/e2e/upload-download.cy.js
+
+# Test de charge k6 (backend démarré sur :8080)
+k6 run --vus 20 --duration 30s tests/load/load-test.js
+```
 
 ## **6.2 Sécurité (SECURITY.md)**
 
-Un audit OWASP Top 10 a été réalisé durant le développement. Les mesures couvrent : SQL Injection (ORM), XSS (Angular templating), CORS restreint, protection par mot de passe BCrypt, et isolation physique des fichiers. Audit de dépendances npm automatisé.
+Un audit OWASP Top 10 a été réalisé durant le développement. Les mesures couvrent : SQL Injection (ORM), XSS (Angular templating), CORS restreint aux origines configurées (plus de wildcard), protection par mot de passe BCrypt, isolation physique des fichiers, triple validation backend des dépôts (taille + liste blanche extensions + détection MIME Tika), handler d'exceptions sécurisé (plus de fuite `ex.getMessage()` brut), et défense contre le path traversal. Audit de dépendances npm automatisé. Spécification OpenAPI disponible sur `/openapi.yaml`.
 
 ## **6.3 Performance (PERF.md)**
 
@@ -345,12 +395,12 @@ Un audit OWASP Top 10 a été réalisé durant le développement. Les mesures co
 * Index PostgreSQL sur uuid, user\_id et is\_expired pour des requêtes < 10 ms
 * Frontend : lazy loading de toutes les routes secondaires, Angular Signals pour éviter Zone.js overhead
 * Budget de performance : First Contentful Paint cible < 1.5s, LCP < 2.5s
-* Plan de charge k6 préconisé : 20 utilisateurs simultanés, latence cible < 200 ms
+* **Résultats test de charge k6** (20 VUs, 30s) : 1 938 requêtes, 63,63 req/s, p(95) = 29,09 ms (seuil < 500 ms → ✓), download p(95) = 2,95 ms, upload p(95) = 2,28 ms
 
 ## **6.4 Maintenance (MAINTENANCE.md)**
 
 * Nettoyage automatique : cron @Scheduled(cron = "0 0 0 \* \* ?") — purge physique et logique des fichiers expirés
-* Sauvegardes BDD : script backup-db.sh via pg\_dump, rotation sur 7 jours
+* Sauvegardes BDD : script `backup-db.sh` à la racine du dépôt via pg\_dump, compression gzip, rotation configurable (défaut 30 jours)
 * Monitoring espace disque : alerte critique si < 20% disponible sur le volume uploads
 * Logs structurés : niveaux INFO/WARN/ERROR compatibles ELK/Loki
 * Mise à jour dépendances : npm audit (quotidien frontend), mvn versions:display-dependency-updates (semestriel backend)
@@ -441,9 +491,15 @@ L'IA (principalement Claude Sonnet et GitHub Copilot) a été utilisée avec une
 ## **8.3 Supervision et Corrections**
 
 * Revue systématique de chaque bloc de code généré avant commit
-* Corrections de sécurité : révision de la configuration CORS (trop permissive initialement), ajout de la validation des extensions côté backend (l'IA n'avait géré que le frontend)
+* Corrections de sécurité post-soutenance : ajout du service `FileValidationService` pour la validation backend par liste blanche + détection MIME Apache Tika (l'IA n'avait initialement géré la validation que côté frontend)
+* Correction CORS : l'IA avait configuré `allowedOriginPatterns("*")` + `allowCredentials(true)` — remplacé par une liste stricte d'origines configurable via `cors.allowed-origins`
+* Correction du handler d'exceptions : `GlobalExceptionHandler` renvoyait `ex.getMessage()` brut au client — remplacé par un message générique pour les exceptions non contrôlées
+* Alignement code de réponse upload : l'IA avait codé `200 OK` alors que la doc décrivait `201 Created` — corrigé pour cohérence
+* Ajout de la couverture de code : JaCoCo (backend, seuil 70%) et @vitest/coverage-v8 (frontend, seuil 70%) — l'IA n'avait pas configuré de mesure de couverture
+* Ajout de tests de sécurité : rejet .exe → 400, fichier trop gros → 413, MIME falsifié → 400 dans `FileControllerTest` — l'IA n'avait créé que des tests nominaux
 * Ajustement des tests d'intégration : l'IA utilisait @MockBean (Spring Boot 3) au lieu de @MockitoBean — corrigé après investigation
 * Optimisation performance : l'IA avait proposé byte[] pour le download — remplacé par StreamingResponseBody après analyse
+* Ajout des livrables manquants : spécification OpenAPI (`openapi.yaml`), script `backup-db.sh`, scénarios E2E Cypress réels, exécution test de charge k6
 
 ## **8.4 Apports et Limites Constatés**
 
