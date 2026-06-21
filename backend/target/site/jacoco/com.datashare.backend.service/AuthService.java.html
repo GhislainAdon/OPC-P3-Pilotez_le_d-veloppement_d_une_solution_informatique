@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.datashare.backend.service</a> &gt; <span class="el_source">AuthService.java</span></div><h1>AuthService.java</h1><pre class="source lang-java linenums">package com.datashare.backend.service;
+
+import com.datashare.backend.dto.AuthResponse;
+import com.datashare.backend.dto.LoginRequest;
+import com.datashare.backend.dto.RegisterRequest;
+import com.datashare.backend.exception.AppException;
+import com.datashare.backend.model.User;
+import com.datashare.backend.repository.UserRepository;
+import com.datashare.backend.security.JwtService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+
+    public AuthResponse register(RegisterRequest request) {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (userRepository.existsByEmail(request.email())) {</span>
+<span class="fc" id="L28">            throw new AppException(&quot;Email is already in use&quot;, HttpStatus.BAD_REQUEST);</span>
+        }
+
+<span class="fc" id="L31">        User user = User.builder()</span>
+<span class="fc" id="L32">                .email(request.email())</span>
+<span class="fc" id="L33">                .password(passwordEncoder.encode(request.password()))</span>
+<span class="fc" id="L34">                .firstName(request.firstName())</span>
+<span class="fc" id="L35">                .lastName(request.lastName())</span>
+<span class="fc" id="L36">                .build();</span>
+
+<span class="fc" id="L38">        userRepository.save(user);</span>
+<span class="fc" id="L39">        String jwtToken = jwtService.generateToken(user);</span>
+
+<span class="fc" id="L41">        return new AuthResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName());</span>
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        try {
+<span class="fc" id="L46">            authenticationManager.authenticate(</span>
+<span class="fc" id="L47">                    new UsernamePasswordAuthenticationToken(request.email(), request.password())</span>
+            );
+<span class="fc" id="L49">        } catch (Exception e) {</span>
+<span class="fc" id="L50">            throw new AppException(&quot;Invalid email or password&quot;, HttpStatus.UNAUTHORIZED);</span>
+<span class="fc" id="L51">        }</span>
+
+<span class="fc" id="L53">        User user = userRepository.findByEmail(request.email())</span>
+<span class="fc" id="L54">                .orElseThrow(() -&gt; new AppException(&quot;User not found&quot;, HttpStatus.NOT_FOUND));</span>
+
+<span class="fc" id="L56">        String jwtToken = jwtService.generateToken(user);</span>
+
+<span class="fc" id="L58">        return new AuthResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

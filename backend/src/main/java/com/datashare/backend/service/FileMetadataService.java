@@ -63,7 +63,7 @@ public class FileMetadataService {
         // par Tika) est désormais appliquée dans FileStorageService.storeFile.
         // Le type MIME renvoyé est celui détecté par analyse du contenu, et non plus
         // l'en-tête Content-Type fourni par le client (falsifiable).
-        FileStorageService.StoredFile storedFile = fileStorageService.storeFile(file, uuid);
+        StoredFile storedFile = fileStorageService.storeFile(file, uuid);
         String storagePath = storedFile.storagePath();
         String detectedMimeType = storedFile.detectedMimeType();
 

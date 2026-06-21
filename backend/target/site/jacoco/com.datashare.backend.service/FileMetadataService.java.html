@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileMetadataService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.datashare.backend.service</a> &gt; <span class="el_source">FileMetadataService.java</span></div><h1>FileMetadataService.java</h1><pre class="source lang-java linenums">package com.datashare.backend.service;
+
+import com.datashare.backend.dto.FileResponse;
+import com.datashare.backend.exception.AppException;
+import com.datashare.backend.exception.ResourceNotFoundException;
+import com.datashare.backend.exception.UnauthorizedException;
+import com.datashare.backend.model.FileMetadata;
+import com.datashare.backend.model.Tag;
+import com.datashare.backend.model.User;
+import com.datashare.backend.repository.FileMetadataRepository;
+import com.datashare.backend.repository.TagRepository;
+import com.datashare.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class FileMetadataService {
+
+    private final FileMetadataRepository fileMetadataRepository;
+    private final TagRepository tagRepository;
+    private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public FileResponse uploadFile(
+            MultipartFile file,
+            Integer expiryDays,
+            String password,
+            List&lt;String&gt; tagNames,
+            String userEmail
+    ) {
+        // Expiry management (1 to 7 days, default 7)
+<span class="pc bpc" id="L46" title="3 of 6 branches missed.">        int days = (expiryDays == null || expiryDays &lt; 1 || expiryDays &gt; 7) ? 7 : expiryDays;</span>
+<span class="fc" id="L47">        Instant uploadTime = Instant.now();</span>
+<span class="fc" id="L48">        Instant expiryTime = uploadTime.plus(days, ChronoUnit.DAYS);</span>
+
+<span class="fc" id="L50">        String uuid = UUID.randomUUID().toString();</span>
+
+        // Password protection configuration — validé AVANT le stockage physique
+        // (fail-fast : on évite d'écrire un fichier sur disque si la requête est invalide).
+<span class="fc" id="L54">        String passwordHash = null;</span>
+<span class="pc bpc" id="L55" title="1 of 4 branches missed.">        if (password != null &amp;&amp; !password.isBlank()) {</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (password.length() &lt; 6) {</span>
+<span class="fc" id="L57">                throw new AppException(&quot;Password must be at least 6 characters long&quot;, HttpStatus.BAD_REQUEST);</span>
+            }
+<span class="fc" id="L59">            passwordHash = passwordEncoder.encode(password);</span>
+        }
+
+        // Store file physically — la validation backend (extension + type MIME réel
+        // par Tika) est désormais appliquée dans FileStorageService.storeFile.
+        // Le type MIME renvoyé est celui détecté par analyse du contenu, et non plus
+        // l'en-tête Content-Type fourni par le client (falsifiable).
+<span class="fc" id="L66">        StoredFile storedFile = fileStorageService.storeFile(file, uuid);</span>
+<span class="fc" id="L67">        String storagePath = storedFile.storagePath();</span>
+<span class="fc" id="L68">        String detectedMimeType = storedFile.detectedMimeType();</span>
+
+        // Fetch User context if logged in
+<span class="fc" id="L71">        User user = null;</span>
+<span class="pc bpc" id="L72" title="1 of 4 branches missed.">        if (userEmail != null &amp;&amp; !userEmail.isBlank()) {</span>
+<span class="fc" id="L73">            user = userRepository.findByEmail(userEmail).orElse(null);</span>
+        }
+
+        // Tags configuration
+<span class="fc" id="L77">        Set&lt;Tag&gt; tags = new HashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (tagNames != null) {</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">            for (String name : tagNames) {</span>
+<span class="pc bpc" id="L80" title="2 of 4 branches missed.">                if (name == null || name.trim().isBlank()) continue;</span>
+<span class="fc" id="L81">                String cleanName = name.trim().toLowerCase();</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                if (cleanName.length() &gt; 30) {</span>
+<span class="nc" id="L83">                    cleanName = cleanName.substring(0, 30);</span>
+                }
+<span class="fc" id="L85">                String finalCleanName = cleanName;</span>
+<span class="fc" id="L86">                Tag tag = tagRepository.findByName(finalCleanName)</span>
+<span class="fc" id="L87">                        .orElseGet(() -&gt; tagRepository.save(Tag.builder().name(finalCleanName).build()));</span>
+<span class="fc" id="L88">                tags.add(tag);</span>
+<span class="fc" id="L89">            }</span>
+        }
+
+        // Build File Metadata
+<span class="fc" id="L93">        FileMetadata metadata = FileMetadata.builder()</span>
+<span class="fc" id="L94">                .uuid(uuid)</span>
+<span class="fc" id="L95">                .originalName(file.getOriginalFilename())</span>
+<span class="fc" id="L96">                .fileType(detectedMimeType)</span>
+<span class="fc" id="L97">                .fileSize(file.getSize())</span>
+<span class="fc" id="L98">                .storagePath(storagePath)</span>
+<span class="fc" id="L99">                .passwordHash(passwordHash)</span>
+<span class="fc" id="L100">                .uploadDate(uploadTime)</span>
+<span class="fc" id="L101">                .expiryDate(expiryTime)</span>
+<span class="fc" id="L102">                .user(user)</span>
+<span class="fc" id="L103">                .tags(tags)</span>
+<span class="fc" id="L104">                .build();</span>
+
+<span class="fc" id="L106">        FileMetadata saved = fileMetadataRepository.save(metadata);</span>
+<span class="fc" id="L107">        return mapToFileResponse(saved);</span>
+    }
+
+    public FileResponse getFileDetails(String uuid) {
+<span class="fc" id="L111">        FileMetadata metadata = getValidMetadata(uuid);</span>
+<span class="fc" id="L112">        return mapToFileResponse(metadata);</span>
+    }
+
+    public Resource downloadFile(String uuid, String password) {
+<span class="fc" id="L116">        FileMetadata metadata = getValidMetadata(uuid);</span>
+
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (metadata.getPasswordHash() != null) {</span>
+<span class="pc bpc" id="L119" title="2 of 6 branches missed.">            if (password == null || password.isBlank() || !passwordEncoder.matches(password, metadata.getPasswordHash())) {</span>
+<span class="fc" id="L120">                throw new UnauthorizedException(&quot;Incorrect password for downloading this file&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L124">        return fileStorageService.loadFileAsResource(metadata.getStoragePath());</span>
+    }
+
+    public List&lt;FileResponse&gt; getUserHistory(String userEmail) {
+<span class="fc" id="L128">        User user = userRepository.findByEmail(userEmail)</span>
+<span class="pc" id="L129">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;User not found&quot;));</span>
+
+<span class="fc" id="L131">        return fileMetadataRepository.findByUserAndIsExpiredFalseOrderByUploadDateDesc(user)</span>
+<span class="fc" id="L132">                .stream()</span>
+<span class="fc" id="L133">                .map(this::mapToFileResponse)</span>
+<span class="fc" id="L134">                .collect(Collectors.toList());</span>
+    }
+
+    @Transactional
+    public void deleteFile(String uuid, String userEmail) {
+<span class="fc" id="L139">        FileMetadata metadata = fileMetadataRepository.findByUuid(uuid)</span>
+<span class="pc" id="L140">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;File not found&quot;));</span>
+
+<span class="fc" id="L142">        User user = userRepository.findByEmail(userEmail)</span>
+<span class="pc" id="L143">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;User not found&quot;));</span>
+
+<span class="pc bpc" id="L145" title="1 of 4 branches missed.">        if (metadata.getUser() == null || !metadata.getUser().getId().equals(user.getId())) {</span>
+<span class="fc" id="L146">            throw new UnauthorizedException(&quot;You do not own this file and cannot delete it&quot;);</span>
+        }
+
+        // Physical deletion
+<span class="fc" id="L150">        fileStorageService.deletePhysicalFile(metadata.getStoragePath());</span>
+
+        // Database deletion
+<span class="fc" id="L153">        fileMetadataRepository.delete(metadata);</span>
+<span class="fc" id="L154">    }</span>
+
+    // Cron job running daily at midnight to delete expired files
+    @Scheduled(cron = &quot;0 0 0 * * ?&quot;)
+    @Transactional
+    public void purgeExpiredFiles() {
+<span class="fc" id="L160">        Instant now = Instant.now();</span>
+<span class="fc" id="L161">        List&lt;FileMetadata&gt; expiredList = fileMetadataRepository.findByIsExpiredFalseAndExpiryDateBefore(now);</span>
+
+<span class="fc" id="L163">        System.out.println(&quot;Cron triggered: purging &quot; + expiredList.size() + &quot; expired files.&quot;);</span>
+
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        for (FileMetadata file : expiredList) {</span>
+            // Delete physical file
+<span class="fc" id="L167">            fileStorageService.deletePhysicalFile(file.getStoragePath());</span>
+            // Mark as expired in BDD
+<span class="fc" id="L169">            file.setIsExpired(true);</span>
+<span class="fc" id="L170">            fileMetadataRepository.save(file);</span>
+<span class="fc" id="L171">        }</span>
+<span class="fc" id="L172">    }</span>
+
+    private FileMetadata getValidMetadata(String uuid) {
+<span class="fc" id="L175">        FileMetadata metadata = fileMetadataRepository.findByUuid(uuid)</span>
+<span class="pc" id="L176">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;File not found&quot;));</span>
+
+<span class="pc bpc" id="L178" title="1 of 4 branches missed.">        if (metadata.getIsExpired() || metadata.getExpiryDate().isBefore(Instant.now())) {</span>
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">            if (!metadata.getIsExpired()) {</span>
+                // Lazily purge physical file if cron didn't run yet
+<span class="fc" id="L181">                fileStorageService.deletePhysicalFile(metadata.getStoragePath());</span>
+<span class="fc" id="L182">                metadata.setIsExpired(true);</span>
+<span class="fc" id="L183">                fileMetadataRepository.save(metadata);</span>
+            }
+<span class="fc" id="L185">            throw new AppException(&quot;This file has expired and is no longer available&quot;, HttpStatus.GONE);</span>
+        }
+
+<span class="fc" id="L188">        return metadata;</span>
+    }
+
+    private FileResponse mapToFileResponse(FileMetadata metadata) {
+<span class="fc" id="L192">        return new FileResponse(</span>
+<span class="fc" id="L193">                metadata.getUuid(),</span>
+<span class="fc" id="L194">                metadata.getOriginalName(),</span>
+<span class="fc" id="L195">                metadata.getFileType(),</span>
+<span class="fc" id="L196">                metadata.getFileSize(),</span>
+<span class="fc" id="L197">                metadata.getUploadDate(),</span>
+<span class="fc" id="L198">                metadata.getExpiryDate(),</span>
+<span class="fc" id="L199">                metadata.getIsExpired(),</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                metadata.getPasswordHash() != null,</span>
+<span class="fc" id="L201">                metadata.getTags().stream().map(Tag::getName).collect(Collectors.toSet())</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

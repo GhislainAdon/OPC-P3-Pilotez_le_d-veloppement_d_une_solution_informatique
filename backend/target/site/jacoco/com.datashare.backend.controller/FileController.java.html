@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.datashare.backend.controller</a> &gt; <span class="el_source">FileController.java</span></div><h1>FileController.java</h1><pre class="source lang-java linenums">package com.datashare.backend.controller;
+
+import com.datashare.backend.dto.FileResponse;
+import com.datashare.backend.service.FileMetadataService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.nio.charset.StandardCharsets;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.net.URLConnection;
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/files&quot;)
+@RequiredArgsConstructor
+public class FileController {
+
+    private final FileMetadataService fileMetadataService;
+
+    @PostMapping(&quot;/upload&quot;)
+    public ResponseEntity&lt;FileResponse&gt; uploadFile(
+            @RequestParam(&quot;file&quot;) MultipartFile file,
+            @RequestParam(value = &quot;expiryDays&quot;, required = false) Integer expiryDays,
+            @RequestParam(value = &quot;password&quot;, required = false) String password,
+            @RequestParam(value = &quot;tags&quot;, required = false) List&lt;String&gt; tags
+    ) {
+<span class="fc" id="L36">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="fc" id="L37">        String email = null;</span>
+<span class="pc bpc" id="L38" title="2 of 6 branches missed.">        if (authentication != null &amp;&amp; authentication.isAuthenticated() &amp;&amp; !&quot;anonymousUser&quot;.equals(authentication.getPrincipal())) {</span>
+<span class="fc" id="L39">            email = authentication.getName();</span>
+        }
+
+<span class="fc" id="L42">        FileResponse response = fileMetadataService.uploadFile(file, expiryDays, password, tags, email);</span>
+        // 201 Created : la ressource FileMetadata a été créée côté serveur.
+        // Auparavant le code renvoyait 200 OK, en contradiction avec README.md
+        // et TESTING.md qui décrivaient un 201. Le comportement est aligné.
+<span class="fc" id="L46">        return ResponseEntity.status(HttpStatus.CREATED).body(response);</span>
+    }
+
+    @GetMapping(&quot;/download/{uuid}/details&quot;)
+    public ResponseEntity&lt;FileResponse&gt; getFileDetails(@PathVariable String uuid) {
+<span class="fc" id="L51">        return ResponseEntity.ok(fileMetadataService.getFileDetails(uuid));</span>
+    }
+
+    @GetMapping(&quot;/download/{uuid}&quot;)
+    public ResponseEntity&lt;Resource&gt; downloadFile(
+            @PathVariable String uuid,
+            @RequestParam(value = &quot;password&quot;, required = false) String password
+    ) {
+<span class="fc" id="L59">        Resource resource = fileMetadataService.downloadFile(uuid, password);</span>
+<span class="fc" id="L60">        FileResponse details = fileMetadataService.getFileDetails(uuid);</span>
+
+<span class="fc" id="L62">        String contentType = details.fileType();</span>
+<span class="pc bpc" id="L63" title="2 of 4 branches missed.">        if (contentType == null || contentType.isBlank()) {</span>
+<span class="nc" id="L64">            contentType = URLConnection.guessContentTypeFromName(details.originalName());</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">            if (contentType == null) {</span>
+<span class="nc" id="L66">                contentType = &quot;application/octet-stream&quot;;</span>
+            }
+        }
+
+<span class="fc" id="L70">        ContentDisposition contentDisposition = ContentDisposition.attachment()</span>
+<span class="fc" id="L71">                .filename(details.originalName(), StandardCharsets.UTF_8)</span>
+<span class="fc" id="L72">                .build();</span>
+
+<span class="fc" id="L74">        return ResponseEntity.ok()</span>
+<span class="fc" id="L75">                .contentType(MediaType.parseMediaType(contentType))</span>
+<span class="fc" id="L76">                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())</span>
+<span class="fc" id="L77">                .body(resource);</span>
+    }
+
+    @GetMapping(&quot;/history&quot;)
+    public ResponseEntity&lt;List&lt;FileResponse&gt;&gt; getHistory() {
+<span class="fc" id="L82">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="fc" id="L83">        String email = authentication.getName();</span>
+<span class="fc" id="L84">        return ResponseEntity.ok(fileMetadataService.getUserHistory(email));</span>
+    }
+
+    @DeleteMapping(&quot;/{uuid}&quot;)
+    public ResponseEntity&lt;Void&gt; deleteFile(@PathVariable String uuid) {
+<span class="fc" id="L89">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="fc" id="L90">        String email = authentication.getName();</span>
+<span class="fc" id="L91">        fileMetadataService.deleteFile(uuid, email);</span>
+<span class="fc" id="L92">        return ResponseEntity.noContent().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -47,7 +47,7 @@ class FileStorageServiceTest {
                 "Hello World".getBytes()
         );
 
-        FileStorageService.StoredFile stored = fileStorageService.storeFile(mockFile, uuid);
+        StoredFile stored = fileStorageService.storeFile(mockFile, uuid);
 
         assertNotNull(stored);
         assertNotNull(stored.storagePath());

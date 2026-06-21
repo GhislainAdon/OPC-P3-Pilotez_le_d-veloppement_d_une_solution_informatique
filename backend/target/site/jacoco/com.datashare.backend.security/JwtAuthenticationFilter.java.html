@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtAuthenticationFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.datashare.backend.security</a> &gt; <span class="el_source">JwtAuthenticationFilter.java</span></div><h1>JwtAuthenticationFilter.java</h1><pre class="source lang-java linenums">package com.datashare.backend.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
+<span class="fc" id="L32">        final String authHeader = request.getHeader(&quot;Authorization&quot;);</span>
+        final String jwt;
+        final String userEmail;
+
+<span class="pc bpc" id="L36" title="1 of 4 branches missed.">        if (authHeader == null || !authHeader.startsWith(&quot;Bearer &quot;)) {</span>
+<span class="fc" id="L37">            filterChain.doFilter(request, response);</span>
+<span class="fc" id="L38">            return;</span>
+        }
+
+<span class="fc" id="L41">        jwt = authHeader.substring(7);</span>
+        try {
+<span class="fc" id="L43">            userEmail = jwtService.extractUsername(jwt);</span>
+<span class="nc" id="L44">        } catch (Exception e) {</span>
+            // If token parsing fails, simply proceed down the chain (anonymous user context)
+<span class="nc" id="L46">            filterChain.doFilter(request, response);</span>
+<span class="nc" id="L47">            return;</span>
+<span class="fc" id="L48">        }</span>
+
+<span class="pc bpc" id="L50" title="2 of 4 branches missed.">        if (userEmail != null &amp;&amp; SecurityContextHolder.getContext().getAuthentication() == null) {</span>
+<span class="fc" id="L51">            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);</span>
+
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">            if (jwtService.isTokenValid(jwt, userDetails)) {</span>
+<span class="fc" id="L54">                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(</span>
+                        userDetails,
+                        null,
+<span class="fc" id="L57">                        userDetails.getAuthorities()</span>
+                );
+<span class="fc" id="L59">                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));</span>
+<span class="fc" id="L60">                SecurityContextHolder.getContext().setAuthentication(authToken);</span>
+            }
+        }
+<span class="fc" id="L63">        filterChain.doFilter(request, response);</span>
+<span class="fc" id="L64">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

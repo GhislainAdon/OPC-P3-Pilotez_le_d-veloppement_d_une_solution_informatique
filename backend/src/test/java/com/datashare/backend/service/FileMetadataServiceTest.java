@@ -88,7 +88,7 @@ class FileMetadataServiceTest {
 
     @Test
     void uploadFile_AnonymousUser_NoPassword_Success() {
-        when(fileStorageService.storeFile(any(), anyString())).thenReturn(new FileStorageService.StoredFile("/app/uploads/test-uuid-123_test-file.png", "image/png"));
+        when(fileStorageService.storeFile(any(), anyString())).thenReturn(new StoredFile("/app/uploads/test-uuid-123_test-file.png", "image/png"));
         when(tagRepository.findByName("images")).thenReturn(Optional.empty());
         when(tagRepository.save(any(Tag.class))).thenReturn(new Tag(1L, "images"));
         when(fileMetadataRepository.save(any(FileMetadata.class))).thenAnswer(invocation -> {
@@ -115,7 +115,7 @@ class FileMetadataServiceTest {
 
     @Test
     void uploadFile_AuthenticatedUser_WithPassword_Success() {
-        when(fileStorageService.storeFile(any(), anyString())).thenReturn(new FileStorageService.StoredFile("/app/uploads/test-uuid-123_test-file.png", "image/png"));
+        when(fileStorageService.storeFile(any(), anyString())).thenReturn(new StoredFile("/app/uploads/test-uuid-123_test-file.png", "image/png"));
         when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode("secret123")).thenReturn("hashed_password");
         when(tagRepository.findByName("images")).thenReturn(Optional.empty());

@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileValidationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.datashare.backend.service</a> &gt; <span class="el_source">FileValidationService.java</span></div><h1>FileValidationService.java</h1><pre class="source lang-java linenums">package com.datashare.backend.service;
+
+import com.datashare.backend.exception.AppException;
+import org.apache.tika.Tika;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * Service central de validation des fichiers téléversés.
+ *
+ * &lt;p&gt;La validation repose sur quatre piliers défensifs (consultez SECURITY.md) :&lt;/p&gt;
+ * &lt;ol&gt;
+ *     &lt;li&gt;&lt;b&gt;Taille&lt;/b&gt; : la limite Spring multipart (1 Go) est déjà active côté conteneur,
+ *         mais on ajoute une vérification défensive ici même pour les fichiers vides.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Extension&lt;/b&gt; : liste blanche stricte d'extensions autorisées. Toute extension
+ *         non listée est rejetée, ce qui bloque par construction les exécutables Windows
+ *         (.exe, .bat, .cmd, .msi, .ps1, etc.) et les scripts shell (.sh, .bash).&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Type MIME réel&lt;/b&gt; : détection par &lt;em&gt;Apache Tika&lt;/em&gt; sur le contenu binaire
+ *         réel du fichier. L'en-tête {@code Content-Type} fourni par le client n'est plus
+ *         utilisé, car il est falsifiable (un attaquant peut envoyer un .exe avec un
+ *         Content-Type: image/png). Le type détecté par Tika doit être cohérent avec
+ *         l'extension déclarée.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Magic bytes d'exécutables&lt;/b&gt; : analyse des premiers octets du fichier pour
+ *         détecter les signatures binaires d'exécutables (PE Windows &quot;MZ&quot;, ELF Linux
+ *         &quot;\x7fELF&quot;, Java class &quot;\xca\xfe\xba\xbe&quot;, Mach-O). Cette vérification s'applique
+ *         MÊME si l'extension est en liste blanche (.txt, .png, etc.), ce qui bloque
+ *         définitivement un .exe renommé en .txt dont le contenu binaire commence par &quot;MZ&quot;.
+ *         Cette couche est essentielle car Tika peut parfois renvoyer &quot;text/plain&quot; pour
+ *         certains binaires malformés ou tronqués.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;La validation est appelée systématiquement par {@link FileStorageService#storeFile}
+ * avant toute écriture sur le disque, garantissant ainsi qu'aucun fichier rejeté n'est
+ * persisté physiquement sur le serveur.&lt;/p&gt;
+ */
+@Service
+<span class="fc" id="L43">public class FileValidationService {</span>
+
+    /**
+     * Liste blanche des extensions autorisées.
+     * Toute extension absente de cet ensemble est rejetée.
+     */
+<span class="fc" id="L49">    private static final Set&lt;String&gt; ALLOWED_EXTENSIONS = Set.of(</span>
+            // Documents
+            &quot;pdf&quot;, &quot;doc&quot;, &quot;docx&quot;, &quot;odt&quot;, &quot;rtf&quot;, &quot;txt&quot;, &quot;md&quot;, &quot;csv&quot;,
+            // Tableurs
+            &quot;xls&quot;, &quot;xlsx&quot;, &quot;ods&quot;,
+            // Présentations
+            &quot;ppt&quot;, &quot;pptx&quot;, &quot;odp&quot;,
+            // Images
+            &quot;png&quot;, &quot;jpg&quot;, &quot;jpeg&quot;, &quot;gif&quot;, &quot;webp&quot;, &quot;bmp&quot;, &quot;svg&quot;, &quot;tiff&quot;,
+            // Audio / Vidéo
+            &quot;mp3&quot;, &quot;wav&quot;, &quot;ogg&quot;, &quot;mp4&quot;, &quot;mov&quot;, &quot;avi&quot;, &quot;mkv&quot;, &quot;webm&quot;,
+            // Archives
+            &quot;zip&quot;, &quot;tar&quot;, &quot;gz&quot;, &quot;7z&quot;, &quot;rar&quot;,
+            // Code / Données (sans exécution côté serveur)
+            &quot;json&quot;, &quot;xml&quot;, &quot;yaml&quot;, &quot;yml&quot;, &quot;html&quot;, &quot;css&quot;, &quot;java&quot;, &quot;py&quot;, &quot;js&quot;, &quot;ts&quot;
+    );
+
+    /**
+     * Liste noire explicite des extensions exécutables, à des fins de message clair.
+     * Cette liste est défensive : la liste blanche ci-dessus suffit à les rejeter,
+     * mais le message d'erreur spécifique aide l'utilisateur légitime à comprendre.
+     */
+<span class="fc" id="L71">    private static final Set&lt;String&gt; EXECUTABLE_EXTENSIONS = Set.of(</span>
+            &quot;exe&quot;, &quot;bat&quot;, &quot;cmd&quot;, &quot;sh&quot;, &quot;bash&quot;, &quot;msi&quot;, &quot;ps1&quot;, &quot;vbs&quot;, &quot;scr&quot;, &quot;com&quot;, &quot;jar&quot;, &quot;war&quot;
+    );
+
+    /**
+     * Taille maximale autorisée : 1 Go (défensive, Spring multipart applique déjà 1 Go).
+     */
+    private static final long MAX_FILE_SIZE_BYTES = 1024L * 1024L * 1024L;
+
+    /**
+     * Signatures magiques d'exécutables et binaires dangereux.
+     * On lit les premiers octets du fichier pour les comparer à ces signatures.
+     * Si l'une d'elles est détectée, le fichier est rejeté QUELLE QUE SOIT l'extension
+     * (y compris .txt, .png, .jpg), car cela signifie qu'un exécutable a été renommé.
+     */
+<span class="fc" id="L86">    private static final byte[][] EXECUTABLE_MAGIC_BYTES = {</span>
+            // PE Windows (DOS header &quot;MZ&quot;) — exécutables .exe, .dll, .scr
+            new byte[]{0x4D, 0x5A},
+            // ELF Linux — exécutables binaires Linux
+            new byte[]{0x7F, 0x45, 0x4C, 0x46},
+            // Java class file (CAFEBABE) — bytecode Java exécutable
+            new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBE},
+            // Mach-O 32-bit (macOS)
+            new byte[]{(byte) 0xFE, (byte) 0xED, (byte) 0xFA, (byte) 0xCE},
+            // Mach-O 64-bit (macOS)
+            new byte[]{(byte) 0xFE, (byte) 0xED, (byte) 0xFA, (byte) 0xCF},
+            // Mach-O universal (macOS)
+            new byte[]{(byte) 0xCA, (byte) 0xFE, (byte) 0xBA, (byte) 0xBF},
+            // PE Windows plus rare (NE, LE, LX — exécutables 16-bit OS/2 et Windows)
+            // déjà couvert par MZ, mais on ajoute la signature PE optionnelle
+            // après le header DOS (offset 0x80 : &quot;PE\0\0&quot;)
+    };
+
+    /**
+     * Nombre d'octets lus pour la détection de magic bytes.
+     * 64 octets suffisent pour couvrir toutes les signatures ci-dessus
+     * et laisser une marge pour les variantes.
+     */
+    private static final int MAGIC_BYTES_READ_SIZE = 64;
+
+<span class="fc" id="L111">    private final Tika tika = new Tika();</span>
+
+    /**
+     * Valide intégralement un fichier téléversé.
+     *
+     * @param file le fichier multipart à valider
+     * @return le type MIME détecté par Tika (à utiliser pour le stockage en base,
+     *         en remplacement de {@link MultipartFile#getContentType()} qui est falsifiable)
+     * @throws AppException si le fichier est vide, trop gros, a une extension interdite,
+     *         un type MIME détecté non cohérent avec l'extension, ou contient des magic
+     *         bytes d'exécutable (même si l'extension est en liste blanche)
+     */
+    public String validateAndDetectMimeType(MultipartFile file) {
+<span class="fc bfc" id="L124" title="All 4 branches covered.">        if (file == null || file.isEmpty()) {</span>
+<span class="fc" id="L125">            throw new AppException(&quot;Aucun fichier reçu ou fichier vide&quot;, HttpStatus.BAD_REQUEST);</span>
+        }
+
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (file.getSize() &gt; MAX_FILE_SIZE_BYTES) {</span>
+<span class="fc" id="L129">            throw new AppException(</span>
+                    &quot;Fichier trop volumineux : la taille maximale autorisée est de 1 Go&quot;,
+                    HttpStatus.PAYLOAD_TOO_LARGE);
+        }
+
+<span class="fc" id="L134">        String originalName = file.getOriginalFilename();</span>
+<span class="pc bpc" id="L135" title="1 of 4 branches missed.">        if (originalName == null || originalName.isBlank()) {</span>
+<span class="fc" id="L136">            throw new AppException(&quot;Nom de fichier manquant&quot;, HttpStatus.BAD_REQUEST);</span>
+        }
+
+<span class="fc" id="L139">        String extension = extractExtension(originalName);</span>
+<span class="fc" id="L140">        String extensionLower = extension.toLowerCase(Locale.ROOT);</span>
+
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if (EXECUTABLE_EXTENSIONS.contains(extensionLower)) {</span>
+<span class="fc" id="L143">            throw new AppException(</span>
+                    &quot;Les fichiers exécutables (.&quot; + extensionLower + &quot;) sont interdits pour des raisons de sécurité&quot;,
+                    HttpStatus.BAD_REQUEST);
+        }
+
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (!ALLOWED_EXTENSIONS.contains(extensionLower)) {</span>
+<span class="fc" id="L149">            throw new AppException(</span>
+                    &quot;Extension de fichier non autorisée : .&quot; + extensionLower
+                            + &quot;. Consultez la liste blanche dans la documentation.&quot;,
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        // === Détection des magic bytes d'exécutables ===
+        // Cette vérification s'applique AVANT Tika et indépendamment de l'extension,
+        // car Tika peut parfois mal détecter certains binaires. On lit les premiers
+        // octets du fichier et on les compare aux signatures d'exécutables connus.
+        // Si une signature est détectée, le fichier est rejeté même si l'extension
+        // est en liste blanche (par exemple un .exe renommé en .txt).
+<span class="fc" id="L161">        checkExecutableMagicBytes(file);</span>
+
+        // === Détection du type MIME réel par Tika ===
+        String detectedMimeType;
+<span class="fc" id="L165">        try (InputStream is = file.getInputStream()) {</span>
+<span class="fc" id="L166">            detectedMimeType = tika.detect(is, originalName);</span>
+<span class="nc" id="L167">        } catch (IOException e) {</span>
+<span class="nc" id="L168">            throw new AppException(</span>
+                    &quot;Impossible de lire le contenu du fichier pour validation&quot;,
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+<span class="fc" id="L171">        }</span>
+
+        // === Cohérence extension / type détecté ===
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (!isMimeConsistentWithExtension(detectedMimeType, extensionLower)) {</span>
+<span class="fc" id="L175">            throw new AppException(</span>
+                    &quot;Incohérence détectée : l'extension .&quot; + extensionLower
+                            + &quot; ne correspond pas au type réel du fichier (&quot; + detectedMimeType + &quot;)&quot;,
+                    HttpStatus.BAD_REQUEST);
+        }
+
+<span class="fc" id="L181">        return detectedMimeType;</span>
+    }
+
+    /**
+     * Vérifie si le fichier commence par des magic bytes d'exécutable.
+     * Cette vérification bloque les .exe renommés en .txt dont le contenu
+     * binaire commence par &quot;MZ&quot; (signature PE Windows).
+     *
+     * @param file le fichier à vérifier
+     * @throws AppException si une signature d'exécutable est détectée
+     */
+    private void checkExecutableMagicBytes(MultipartFile file) {
+<span class="fc" id="L193">        byte[] header = new byte[MAGIC_BYTES_READ_SIZE];</span>
+        int bytesRead;
+<span class="fc" id="L195">        try (InputStream is = file.getInputStream()) {</span>
+<span class="fc" id="L196">            bytesRead = is.read(header);</span>
+<span class="nc" id="L197">        } catch (IOException e) {</span>
+<span class="nc" id="L198">            throw new AppException(</span>
+                    &quot;Impossible de lire l'en-tête du fichier pour validation&quot;,
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+<span class="fc" id="L201">        }</span>
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (bytesRead &lt;= 0) {</span>
+            // Fichier vide déjà vérifié plus haut, mais on défend
+<span class="nc" id="L204">            return;</span>
+        }
+
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        for (byte[] signature : EXECUTABLE_MAGIC_BYTES) {</span>
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">            if (bytesRead &gt;= signature.length &amp;&amp; startsWith(header, signature)) {</span>
+<span class="fc" id="L209">                throw new AppException(</span>
+                        &quot;Fichier binaire exécutable détecté (signature magic bytes &quot;
+<span class="fc" id="L211">                                + bytesToHex(signature) + &quot;). Le téléversement d'exécutables &quot;</span>
+                                + &quot;est interdit quelle que soit l'extension déclarée.&quot;,
+                        HttpStatus.BAD_REQUEST);
+            }
+        }
+<span class="fc" id="L216">    }</span>
+
+    /**
+     * Compare les premiers octets d'un buffer à une signature.
+     */
+    private boolean startsWith(byte[] buffer, byte[] signature) {
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        for (int i = 0; i &lt; signature.length; i++) {</span>
+<span class="fc bfc" id="L223" title="All 2 branches covered.">            if (buffer[i] != signature[i]) {</span>
+<span class="fc" id="L224">                return false;</span>
+            }
+        }
+<span class="fc" id="L227">        return true;</span>
+    }
+
+    /**
+     * Convertit un tableau d'octets en représentation hexadécimale (pour messages d'erreur).
+     */
+    private String bytesToHex(byte[] bytes) {
+<span class="fc" id="L234">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        for (byte b : bytes) {</span>
+<span class="fc" id="L236">            sb.append(String.format(&quot;%02X &quot;, b));</span>
+        }
+<span class="fc" id="L238">        return sb.toString().trim();</span>
+    }
+
+    /**
+     * Extrait l'extension (sans le point) à partir du nom de fichier original.
+     */
+    private String extractExtension(String filename) {
+        // Nettoyage préalable des éventuels chemins relatifs
+<span class="fc" id="L246">        String clean = filename.substring(filename.lastIndexOf('/') + 1);</span>
+<span class="fc" id="L247">        clean = clean.substring(clean.lastIndexOf('\\') + 1);</span>
+
+<span class="fc" id="L249">        int dotIndex = clean.lastIndexOf('.');</span>
+<span class="pc bpc" id="L250" title="2 of 4 branches missed.">        if (dotIndex &lt; 0 || dotIndex == clean.length() - 1) {</span>
+<span class="nc" id="L251">            return &quot;&quot;;</span>
+        }
+<span class="fc" id="L253">        return clean.substring(dotIndex + 1);</span>
+    }
+
+    /**
+     * Vérifie la cohérence grossière entre l'extension déclarée et le type MIME détecté.
+     *
+     * &lt;p&gt;Cette vérification empêche les attaques par renommage (un .exe renommé en .png
+     * sera détecté comme application/x-msdownload par Tika et donc rejeté).&lt;/p&gt;
+     */
+    private boolean isMimeConsistentWithExtension(String mimeType, String extensionLower) {
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">        if (mimeType == null) {</span>
+<span class="nc" id="L264">            return false;</span>
+        }
+<span class="fc" id="L266">        String mime = mimeType.toLowerCase(Locale.ROOT);</span>
+
+        // Tika renvoie parfois ce type pour les binaires Windows
+<span class="pc bpc" id="L269" title="2 of 4 branches missed.">        if (mime.contains(&quot;x-msdownload&quot;) || mime.contains(&quot;x-dosexec&quot;)</span>
+<span class="pc bpc" id="L270" title="2 of 4 branches missed.">                || mime.contains(&quot;application/x-executable&quot;) || mime.contains(&quot;vnd.microsoft.portable-executable&quot;)) {</span>
+<span class="nc" id="L271">            return false;</span>
+        }
+
+        // Mapping extension -&gt; préfixe MIME attendu
+<span class="pc bpc" id="L275" title="31 of 35 branches missed.">        switch (extensionLower) {</span>
+<span class="fc" id="L276">            case &quot;png&quot;: return mime.startsWith(&quot;image/png&quot;);</span>
+            case &quot;jpg&quot;:
+<span class="nc bnc" id="L278" title="All 4 branches missed.">            case &quot;jpeg&quot;: return mime.startsWith(&quot;image/jpeg&quot;) || mime.startsWith(&quot;image/jpg&quot;);</span>
+<span class="nc" id="L279">            case &quot;gif&quot;: return mime.startsWith(&quot;image/gif&quot;);</span>
+<span class="nc bnc" id="L280" title="All 4 branches missed.">            case &quot;webp&quot;: return mime.startsWith(&quot;image/webp&quot;) || mime.startsWith(&quot;image/vnd&quot;);</span>
+<span class="nc bnc" id="L281" title="All 4 branches missed.">            case &quot;bmp&quot;: return mime.startsWith(&quot;image/bmp&quot;) || mime.startsWith(&quot;image/x-ms-bmp&quot;);</span>
+<span class="nc bnc" id="L282" title="All 8 branches missed.">            case &quot;svg&quot;: return mime.startsWith(&quot;image/svg&quot;) || mime.startsWith(&quot;image/xml-svg&quot;) || mime.startsWith(&quot;text/xml&quot;) || mime.startsWith(&quot;application/xml&quot;);</span>
+<span class="nc" id="L283">            case &quot;tiff&quot;: return mime.startsWith(&quot;image/tiff&quot;);</span>
+<span class="fc" id="L284">            case &quot;pdf&quot;: return mime.startsWith(&quot;application/pdf&quot;);</span>
+<span class="nc bnc" id="L285" title="All 4 branches missed.">            case &quot;doc&quot;: case &quot;docx&quot;: return mime.contains(&quot;msword&quot;) || mime.contains(&quot;officedocument.wordprocessing&quot;);</span>
+<span class="nc bnc" id="L286" title="All 4 branches missed.">            case &quot;xls&quot;: case &quot;xlsx&quot;: return mime.contains(&quot;ms-excel&quot;) || mime.contains(&quot;officedocument.spreadsheet&quot;);</span>
+<span class="nc bnc" id="L287" title="All 4 branches missed.">            case &quot;ppt&quot;: case &quot;pptx&quot;: return mime.contains(&quot;ms-powerpoint&quot;) || mime.contains(&quot;officedocument.presentation&quot;);</span>
+<span class="nc" id="L288">            case &quot;odt&quot;: return mime.contains(&quot;opendocument.text&quot;);</span>
+<span class="nc" id="L289">            case &quot;ods&quot;: return mime.contains(&quot;opendocument.spreadsheet&quot;);</span>
+<span class="nc" id="L290">            case &quot;odp&quot;: return mime.contains(&quot;opendocument.presentation&quot;);</span>
+<span class="nc bnc" id="L291" title="All 4 branches missed.">            case &quot;rtf&quot;: return mime.startsWith(&quot;application/rtf&quot;) || mime.startsWith(&quot;text/rtf&quot;);</span>
+<span class="pc bpc" id="L292" title="3 of 4 branches missed.">            case &quot;txt&quot;: case &quot;md&quot;: case &quot;csv&quot;: return mime.startsWith(&quot;text/&quot;) || mime.startsWith(&quot;application/csv&quot;);</span>
+<span class="pc bpc" id="L293" title="3 of 4 branches missed.">            case &quot;zip&quot;: return mime.startsWith(&quot;application/zip&quot;) || mime.startsWith(&quot;application/x-zip&quot;);</span>
+<span class="nc bnc" id="L294" title="All 6 branches missed.">            case &quot;tar&quot;: case &quot;gz&quot;: return mime.startsWith(&quot;application/x-tar&quot;) || mime.startsWith(&quot;application/gzip&quot;) || mime.startsWith(&quot;application/x-gzip&quot;);</span>
+<span class="nc" id="L295">            case &quot;7z&quot;: return mime.startsWith(&quot;application/x-7z&quot;);</span>
+<span class="nc bnc" id="L296" title="All 4 branches missed.">            case &quot;rar&quot;: return mime.startsWith(&quot;application/x-rar&quot;) || mime.startsWith(&quot;application/vnd.rar&quot;);</span>
+<span class="nc bnc" id="L297" title="All 4 branches missed.">            case &quot;mp3&quot;: return mime.startsWith(&quot;audio/mpeg&quot;) || mime.startsWith(&quot;audio/mp3&quot;);</span>
+<span class="nc bnc" id="L298" title="All 4 branches missed.">            case &quot;wav&quot;: return mime.startsWith(&quot;audio/wav&quot;) || mime.startsWith(&quot;audio/x-wav&quot;);</span>
+<span class="nc bnc" id="L299" title="All 4 branches missed.">            case &quot;ogg&quot;: return mime.startsWith(&quot;audio/ogg&quot;) || mime.startsWith(&quot;application/ogg&quot;);</span>
+<span class="nc bnc" id="L300" title="All 4 branches missed.">            case &quot;mp4&quot;: return mime.startsWith(&quot;video/mp4&quot;) || mime.startsWith(&quot;application/mp4&quot;);</span>
+<span class="nc" id="L301">            case &quot;mov&quot;: return mime.startsWith(&quot;video/quicktime&quot;);</span>
+<span class="nc bnc" id="L302" title="All 4 branches missed.">            case &quot;avi&quot;: return mime.startsWith(&quot;video/x-msvideo&quot;) || mime.startsWith(&quot;video/avi&quot;);</span>
+<span class="nc" id="L303">            case &quot;mkv&quot;: return mime.startsWith(&quot;video/x-matroska&quot;);</span>
+<span class="nc bnc" id="L304" title="All 4 branches missed.">            case &quot;webm&quot;: return mime.startsWith(&quot;video/webm&quot;) || mime.startsWith(&quot;audio/webm&quot;);</span>
+<span class="nc bnc" id="L305" title="All 4 branches missed.">            case &quot;json&quot;: return mime.startsWith(&quot;application/json&quot;) || mime.startsWith(&quot;text/json&quot;);</span>
+<span class="nc bnc" id="L306" title="All 4 branches missed.">            case &quot;xml&quot;: return mime.startsWith(&quot;application/xml&quot;) || mime.startsWith(&quot;text/xml&quot;);</span>
+<span class="nc bnc" id="L307" title="All 6 branches missed.">            case &quot;yaml&quot;: case &quot;yml&quot;: return mime.startsWith(&quot;application/x-yaml&quot;) || mime.startsWith(&quot;text/yaml&quot;) || mime.startsWith(&quot;text/plain&quot;);</span>
+<span class="nc" id="L308">            case &quot;html&quot;: return mime.startsWith(&quot;text/html&quot;);</span>
+<span class="nc" id="L309">            case &quot;css&quot;: return mime.startsWith(&quot;text/css&quot;);</span>
+<span class="nc bnc" id="L310" title="All 4 branches missed.">            case &quot;java&quot;: case &quot;py&quot;: case &quot;js&quot;: case &quot;ts&quot;: return mime.startsWith(&quot;text/plain&quot;) || mime.startsWith(&quot;text/x-&quot;);</span>
+<span class="nc" id="L311">            default: return true; // Extension autorisée mais non mappée : on accepte par défaut</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
