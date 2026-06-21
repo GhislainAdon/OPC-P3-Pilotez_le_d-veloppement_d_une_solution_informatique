@@ -1,0 +1,16 @@
+=== Synthèse du test de charge DataShare ===
+Itérations totales: 1945
+Requêtes totales: 1945
+Taux de requêtes: 64.83 req/s
+Temps de réponse moyen: 22.4 ms
+Temps p(95): 29.1 ms
+Temps p(99): 45.3 ms
+Taux d'échec: 0.00 %
+Uploads: 295
+Downloads: 1558
+
+=== Seuils ===
+✓ OK  http_req_duration: p(95)<500
+✓ OK  http_req_duration: p(99)<1500
+✓ OK  upload_duration: p(95)<800
+✓ OK  download_duration: p(95)<300

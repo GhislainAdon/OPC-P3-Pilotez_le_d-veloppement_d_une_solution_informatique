@@ -102,3 +102,13 @@ Un script `backup-db.sh` est fourni à la racine du dépôt pour sauvegarder la 
 | Code de réponse upload | `200 OK` | `201 Created` (cohérent avec la création de ressource) |
 | OpenAPI | Absent | `openapi.yaml` statique servie sur `/openapi.yaml` |
 | backup-db.sh | Absent du dépôt | Présent à la racine |
+
+---
+
+## 7. Confidentialité et Protection des Données (RGPD)
+
+L'application intègre une politique stricte de traitement des données personnelles conformément aux exigences du RGPD :
+- **Consentement explicite** : Une case à cocher obligatoire est requise lors de l'inscription.
+- **Transparence** : Une page dédiée à la Politique de Confidentialité (`/privacy`) est accessible depuis le frontend.
+- **Minimisation** : Seules les données strictement nécessaires (email, nom) sont collectées et conservées.
+- **Droit à l'oubli** : Les fichiers téléversés expirent automatiquement et sont détruits de manière irréversible. Les mots de passe (comptes et fichiers) sont systématiquement hachés et jamais stockés en clair.

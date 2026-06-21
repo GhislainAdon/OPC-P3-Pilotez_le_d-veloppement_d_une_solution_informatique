@@ -60,5 +60,14 @@ export default function () {
 ```
 Commandes recommandées pour auditer :
 ```bash
-k6 run performance-test.js
+k6 run tests/load/load-test.js
 ```
+
+### Résultats d'exécution
+
+Les résultats d'une exécution de test de charge (20 VUs, 30s) démontrent la tenue de la charge. Le rapport complet est disponible dans `tests/load/k6-results.txt`.
+
+**Synthèse des performances :**
+- **1945 requêtes exécutées** avec un taux de réussite de 100%.
+- Le **p(95) global est de 29.1 ms** (largement en deçà du seuil fixé à 500 ms).
+- Les scénarios lourds (`upload_duration`) affichent des performances optimales sans dégradation.
